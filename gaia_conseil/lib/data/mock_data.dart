@@ -395,6 +395,9 @@ class DroneModel {
   final int batteryLevel;
   final String location;
   final DateTime lastSeen;
+  final String? modele;
+  final int missionsTotales;
+  final double surfaceSurveillee;
 
   const DroneModel({
     required this.id,
@@ -404,6 +407,9 @@ class DroneModel {
     required this.batteryLevel,
     required this.location,
     required this.lastSeen,
+    this.modele,
+    this.missionsTotales = 0,
+    this.surfaceSurveillee = 0.0,
   });
 }
 
@@ -416,6 +422,9 @@ final List<DroneModel> mockDrones = [
     batteryLevel: 87,
     location: 'Yamoussoukro — Zone Nord',
     lastSeen: DateTime.now().subtract(const Duration(minutes: 5)),
+    modele: 'DJI Agras T40',
+    missionsTotales: 47,
+    surfaceSurveillee: 312.5,
   ),
   DroneModel(
     id: 'DRONE-002',
@@ -425,6 +434,9 @@ final List<DroneModel> mockDrones = [
     batteryLevel: 12,
     location: 'Abidjan — Cocody',
     lastSeen: DateTime.now().subtract(const Duration(hours: 6)),
+    modele: 'ABT-7 Pro',
+    missionsTotales: 23,
+    surfaceSurveillee: 145.0,
   ),
   DroneModel(
     id: 'DRONE-003',
@@ -434,6 +446,9 @@ final List<DroneModel> mockDrones = [
     batteryLevel: 45,
     location: 'Daloa — Base technique',
     lastSeen: DateTime.now().subtract(const Duration(days: 1)),
+    modele: 'Parrot Bluegrass',
+    missionsTotales: 31,
+    surfaceSurveillee: 198.0,
   ),
   DroneModel(
     id: 'DRONE-004',
@@ -443,6 +458,9 @@ final List<DroneModel> mockDrones = [
     batteryLevel: 73,
     location: 'Bouaké — Parcelle Est',
     lastSeen: DateTime.now().subtract(const Duration(minutes: 12)),
+    modele: 'DJI Agras T20',
+    missionsTotales: 15,
+    surfaceSurveillee: 89.5,
   ),
   DroneModel(
     id: 'DRONE-005',
@@ -452,6 +470,9 @@ final List<DroneModel> mockDrones = [
     batteryLevel: 5,
     location: 'San-Pédro — Zone Côtière',
     lastSeen: DateTime.now().subtract(const Duration(hours: 18)),
+    modele: 'XAG P100',
+    missionsTotales: 8,
+    surfaceSurveillee: 42.0,
   ),
 ];
 

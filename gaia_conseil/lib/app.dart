@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'core/theme.dart';
-import 'screens/auth/login_screen.dart';
+import 'screens/splash_screen.dart';
 
 class GaiaApp extends StatelessWidget {
   const GaiaApp({super.key});
@@ -11,7 +11,7 @@ class GaiaApp extends StatelessWidget {
       title: 'GAÏA-Conseil',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
-      home: const LoginScreen(),
+      home: const SplashScreen(),
     );
   }
 }
