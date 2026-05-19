@@ -130,13 +130,11 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.primaryGreen,
+      backgroundColor: Colors.transparent,
       body: Stack(
         // Utilisation de Stack pour superposer les widgets
         children: [
-          const Positioned.fill(
-            child: _LoginHero(),
-          ), // Le fond vert remplit tout l'écran
+          const Positioned.fill(child: _LoginHero()),
           Align(
             // Positionne le formulaire en bas
             alignment: Alignment.bottomCenter,
@@ -480,36 +478,56 @@ class _LoginHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: AppTheme.primaryGreen,
-      child: Align(
-        alignment: Alignment.center,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const GaiaLogoMark(size: 96),
-            const SizedBox(height: 14),
-            Text(
-              'GAÏA-Conseil',
-              style: GoogleFonts.poppins(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                letterSpacing: 0,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              "Projet GAÏA-CI · Côte d'Ivoire",
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                color: Colors.white70,
-                letterSpacing: 0,
-              ),
-            ),
-          ],
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.asset(
+          'assets/images/fond.png',
+          fit: BoxFit.cover,
+          alignment: Alignment.center,
+          repeat: ImageRepeat.noRepeat,
         ),
-      ),
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withValues(alpha: 0.22),
+                Colors.black.withValues(alpha: 0.45),
+              ],
+            ),
+          ),
+        ),
+        Align(
+          alignment: Alignment.center,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const GaiaLogoMark(size: 96),
+              const SizedBox(height: 14),
+              Text(
+                'GAÏA-Conseil',
+                style: GoogleFonts.poppins(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: 0,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                "Projet GAÏA-CI · Côte d'Ivoire",
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  color: Colors.white70,
+                  letterSpacing: 0,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
