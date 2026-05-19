@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme.dart';
 import '../../data/auth_state.dart';
 import '../../data/mock_data.dart';
+import '../../widgets/gaia_logo_mark.dart';
 import '../auth/login_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -88,15 +89,7 @@ class _Header extends StatelessWidget {
           ),
           Row(
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.wb_sunny, color: AppTheme.accentGold, size: 26),
-              ),
+              const GaiaLogoMark(size: 44),
               const SizedBox(width: 8),
               GestureDetector(
                 onTap: () => _showProfileSheet(context),
@@ -107,7 +100,11 @@ class _Header extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.person_outline, color: Colors.white, size: 24),
+                  child: const Icon(
+                    Icons.person_outline,
+                    color: Colors.white,
+                    size: 24,
+                  ),
                 ),
               ),
             ],
@@ -130,19 +127,41 @@ class _Header extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
             const SizedBox(height: 20),
             CircleAvatar(
               radius: 32,
               backgroundColor: AppTheme.primaryGreen,
               child: Text(
-                AuthState.currentUserName.isNotEmpty ? AuthState.currentUserName[0].toUpperCase() : 'P',
-                style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                AuthState.currentUserName.isNotEmpty
+                    ? AuthState.currentUserName[0].toUpperCase()
+                    : 'P',
+                style: GoogleFonts.poppins(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
             ),
             const SizedBox(height: 12),
-            Text(AuthState.currentUserName, style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
-            Text('Planteur · GAÏA-CI', style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey)),
+            Text(
+              AuthState.currentUserName,
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              'Planteur · GAÏA-CI',
+              style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey),
+            ),
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
@@ -155,11 +174,19 @@ class _Header extends StatelessWidget {
                   );
                 },
                 icon: const Icon(Icons.logout, color: Colors.red),
-                label: Text('Se déconnecter', style: GoogleFonts.poppins(color: Colors.red, fontWeight: FontWeight.w600)),
+                label: Text(
+                  'Se déconnecter',
+                  style: GoogleFonts.poppins(
+                    color: Colors.red,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Colors.red),
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
@@ -223,15 +250,16 @@ class _HealthCard extends StatelessWidget {
               width: 52,
               height: 52,
               decoration: BoxDecoration(
-                color: (isOptimal
-                        ? AppTheme.successGreen
-                        : AppTheme.warningOrange)
-                    .withValues(alpha: 0.12),
+                color:
+                    (isOptimal ? AppTheme.successGreen : AppTheme.warningOrange)
+                        .withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 isOptimal ? Icons.check_circle : Icons.warning_rounded,
-                color: isOptimal ? AppTheme.successGreen : AppTheme.warningOrange,
+                color: isOptimal
+                    ? AppTheme.successGreen
+                    : AppTheme.warningOrange,
                 size: 30,
               ),
             ),
@@ -341,7 +369,11 @@ class _NutrientCard extends StatelessWidget {
                 color: AppTheme.accentGold.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.eco, color: AppTheme.accentGold, size: 24),
+              child: const Icon(
+                Icons.eco,
+                color: AppTheme.accentGold,
+                size: 24,
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -466,7 +498,9 @@ class _ActionButton extends StatelessWidget {
         onTap: () => _onTap(context),
         child: Container(
           decoration: BoxDecoration(
-            border: Border.all(color: AppTheme.primaryGreen.withValues(alpha: 0.4)),
+            border: Border.all(
+              color: AppTheme.primaryGreen.withValues(alpha: 0.4),
+            ),
             borderRadius: BorderRadius.circular(12),
           ),
           child: _content(AppTheme.primaryGreen, Colors.grey[600]!),
@@ -546,7 +580,10 @@ class _AlertCard extends StatelessWidget {
             Expanded(
               child: Text(
                 alert.message,
-                style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey[800]),
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  color: Colors.grey[800],
+                ),
               ),
             ),
             const SizedBox(width: 8),

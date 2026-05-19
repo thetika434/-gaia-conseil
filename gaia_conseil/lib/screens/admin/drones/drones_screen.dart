@@ -88,12 +88,15 @@ class _DronesScreenState extends State<DronesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final online =
-        mockDrones.where((d) => d.status == DroneStatus.online).length;
-    final offline =
-        mockDrones.where((d) => d.status == DroneStatus.offline).length;
-    final maintenance =
-        mockDrones.where((d) => d.status == DroneStatus.maintenance).length;
+    final online = mockDrones
+        .where((d) => d.status == DroneStatus.online)
+        .length;
+    final offline = mockDrones
+        .where((d) => d.status == DroneStatus.offline)
+        .length;
+    final maintenance = mockDrones
+        .where((d) => d.status == DroneStatus.maintenance)
+        .length;
     final filtres = _dronesFiltres;
 
     return Column(
@@ -118,63 +121,59 @@ class _DronesScreenState extends State<DronesScreen> {
                 icon: const Icon(Icons.sort, color: AppTheme.primaryGreen),
                 tooltip: 'Trier par',
                 onSelected: (val) => setState(() => _tri = val),
-                itemBuilder:
-                    (_) => [
-                      PopupMenuItem(
-                        value: 'nom',
-                        child: Row(
-                          children: [
-                            const Icon(Icons.sort_by_alpha, size: 18),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Nom',
-                              style: GoogleFonts.poppins(
-                                fontWeight:
-                                    _tri == 'nom'
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                              ),
-                            ),
-                          ],
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'nom',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.sort_by_alpha, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Nom',
+                          style: GoogleFonts.poppins(
+                            fontWeight: _tri == 'nom'
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
                         ),
-                      ),
-                      PopupMenuItem(
-                        value: 'batterie',
-                        child: Row(
-                          children: [
-                            const Icon(Icons.battery_full, size: 18),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Batterie',
-                              style: GoogleFonts.poppins(
-                                fontWeight:
-                                    _tri == 'batterie'
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                              ),
-                            ),
-                          ],
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'batterie',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.battery_full, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Batterie',
+                          style: GoogleFonts.poppins(
+                            fontWeight: _tri == 'batterie'
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
                         ),
-                      ),
-                      PopupMenuItem(
-                        value: 'activite',
-                        child: Row(
-                          children: [
-                            const Icon(Icons.access_time, size: 18),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Activité',
-                              style: GoogleFonts.poppins(
-                                fontWeight:
-                                    _tri == 'activite'
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                              ),
-                            ),
-                          ],
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'activite',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.access_time, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Activité',
+                          style: GoogleFonts.poppins(
+                            fontWeight: _tri == 'activite'
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -199,42 +198,33 @@ class _DronesScreenState extends State<DronesScreen> {
                   label: 'En ligne ($online)',
                   color: AppTheme.successGreen,
                   isSelected: _filtreActif == DroneStatus.online,
-                  onTap:
-                      () => setState(
-                        () =>
-                            _filtreActif =
-                                _filtreActif == DroneStatus.online
-                                    ? null
-                                    : DroneStatus.online,
-                      ),
+                  onTap: () => setState(
+                    () => _filtreActif = _filtreActif == DroneStatus.online
+                        ? null
+                        : DroneStatus.online,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 _filterChip(
                   label: 'Hors ligne ($offline)',
                   color: Colors.grey,
                   isSelected: _filtreActif == DroneStatus.offline,
-                  onTap:
-                      () => setState(
-                        () =>
-                            _filtreActif =
-                                _filtreActif == DroneStatus.offline
-                                    ? null
-                                    : DroneStatus.offline,
-                      ),
+                  onTap: () => setState(
+                    () => _filtreActif = _filtreActif == DroneStatus.offline
+                        ? null
+                        : DroneStatus.offline,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 _filterChip(
                   label: 'Maintenance ($maintenance)',
                   color: AppTheme.warningOrange,
                   isSelected: _filtreActif == DroneStatus.maintenance,
-                  onTap:
-                      () => setState(
-                        () =>
-                            _filtreActif =
-                                _filtreActif == DroneStatus.maintenance
-                                    ? null
-                                    : DroneStatus.maintenance,
-                      ),
+                  onTap: () => setState(
+                    () => _filtreActif = _filtreActif == DroneStatus.maintenance
+                        ? null
+                        : DroneStatus.maintenance,
+                  ),
                 ),
               ],
             ),
@@ -253,13 +243,12 @@ class _DronesScreenState extends State<DronesScreen> {
                 color: Colors.grey[400],
               ),
               prefixIcon: const Icon(Icons.search, color: Colors.grey),
-              suffixIcon:
-                  _recherche.isNotEmpty
-                      ? IconButton(
-                        icon: const Icon(Icons.clear, color: Colors.grey),
-                        onPressed: () => _searchController.clear(),
-                      )
-                      : null,
+              suffixIcon: _recherche.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, color: Colors.grey),
+                      onPressed: () => _searchController.clear(),
+                    )
+                  : null,
               filled: true,
               fillColor: Colors.white,
               contentPadding: const EdgeInsets.symmetric(
@@ -289,193 +278,190 @@ class _DronesScreenState extends State<DronesScreen> {
 
         // ── Drone list ──────────────────────────────────────────────────
         Expanded(
-          child:
-              filtres.isEmpty
-                  ? _emptyState()
-                  : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    itemCount: filtres.length,
-                    itemBuilder: (_, i) {
-                      final drone = filtres[i];
-                      final sc = _statusColor(drone.status);
-                      final bc = _batteryColor(drone.batteryLevel);
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+          child: filtres.isEmpty
+              ? _emptyState()
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  itemCount: filtres.length,
+                  itemBuilder: (_, i) {
+                    final drone = filtres[i];
+                    final sc = _statusColor(drone.status);
+                    final bc = _batteryColor(drone.batteryLevel);
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        splashColor: AppTheme.primaryGreen.withValues(
+                          alpha: 0.1,
                         ),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(16),
-                          splashColor: AppTheme.primaryGreen.withValues(
-                            alpha: 0.1,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => DroneDetailScreen(drone: drone),
                           ),
-                          onTap:
-                              () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder:
-                                      (_) => DroneDetailScreen(drone: drone),
-                                ),
-                              ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Drone id + owner + status + arrow
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(10),
-                                      decoration: BoxDecoration(
-                                        color: sc.withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Icon(
-                                        Icons.flight_takeoff,
-                                        color: sc,
-                                        size: 22,
-                                      ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Drone id + owner + status + arrow
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: sc.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            drone.id,
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                          Text(
-                                            drone.ownerName,
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 13,
-                                              color: Colors.grey[600],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                                    child: Icon(
+                                      Icons.flight_takeoff,
+                                      color: sc,
+                                      size: 22,
                                     ),
-                                    Row(
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Container(
-                                          width: 10,
-                                          height: 10,
-                                          decoration: BoxDecoration(
-                                            color: sc,
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 5),
                                         Text(
-                                          _statusLabel(drone.status),
+                                          drone.id,
                                           style: GoogleFonts.poppins(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                            color: sc,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.bold,
                                           ),
                                         ),
-                                        const SizedBox(width: 4),
-                                        Icon(
-                                          Icons.chevron_right,
-                                          color: Colors.grey[400],
-                                          size: 20,
+                                        Text(
+                                          drone.ownerName,
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 13,
+                                            color: Colors.grey[600],
+                                          ),
                                         ),
                                       ],
                                     ),
-                                  ],
-                                ),
-                                const SizedBox(height: 14),
-                                // Battery level
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.battery_charging_full,
-                                      size: 16,
+                                  ),
+                                  Row(
+                                    children: [
+                                      Container(
+                                        width: 10,
+                                        height: 10,
+                                        decoration: BoxDecoration(
+                                          color: sc,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Text(
+                                        _statusLabel(drone.status),
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: sc,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Icon(
+                                        Icons.chevron_right,
+                                        color: Colors.grey[400],
+                                        size: 20,
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              // Battery level
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.battery_charging_full,
+                                    size: 16,
+                                    color: bc,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Batterie',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: LinearProgressIndicator(
+                                        value: drone.batteryLevel / 100,
+                                        backgroundColor: bc.withValues(
+                                          alpha: 0.15,
+                                        ),
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(bc),
+                                        minHeight: 8,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '${drone.batteryLevel}%',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
                                       color: bc,
                                     ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'Batterie',
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              // Location + last seen
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.location_on_outlined,
+                                    size: 14,
+                                    color: Colors.grey,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      drone.location,
                                       style: GoogleFonts.poppins(
                                         fontSize: 12,
                                         color: Colors.grey[600],
                                       ),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(4),
-                                        child: LinearProgressIndicator(
-                                          value: drone.batteryLevel / 100,
-                                          backgroundColor: bc.withValues(
-                                            alpha: 0.15,
-                                          ),
-                                          valueColor:
-                                              AlwaysStoppedAnimation<Color>(bc),
-                                          minHeight: 8,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      '${drone.batteryLevel}%',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: bc,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                // Location + last seen
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.location_on_outlined,
-                                      size: 14,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  const Icon(
+                                    Icons.access_time,
+                                    size: 14,
+                                    color: Colors.grey,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _lastSeenLabel(drone.lastSeen),
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
                                       color: Colors.grey,
                                     ),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text(
-                                        drone.location,
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 12,
-                                          color: Colors.grey[600],
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    const Icon(
-                                      Icons.access_time,
-                                      size: 14,
-                                      color: Colors.grey,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      _lastSeenLabel(drone.lastSeen),
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 12,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    );
+                  },
+                ),
         ),
       ],
     );
@@ -528,12 +514,11 @@ class _DronesScreenState extends State<DronesScreen> {
   Widget _emptyState() {
     final hasSearch = _recherche.isNotEmpty;
     final hasFilter = _filtreActif != null;
-    final message =
-        hasSearch
-            ? 'Aucun drone trouvé pour "$_recherche"'
-            : hasFilter
-            ? 'Aucun drone dans cette catégorie'
-            : 'Aucun drone disponible';
+    final message = hasSearch
+        ? 'Aucun drone trouvé pour "$_recherche"'
+        : hasFilter
+        ? 'Aucun drone dans cette catégorie'
+        : 'Aucun drone disponible';
 
     return Center(
       child: Column(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../core/theme.dart';
+import '../widgets/gaia_logo_mark.dart';
 import 'auth/login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -22,12 +24,14 @@ class _SplashScreenState extends State<SplashScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     );
-    _fadeAnim = Tween(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
-    );
-    _scaleAnim = Tween(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
+    _fadeAnim = Tween(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
+    _scaleAnim = Tween(
+      begin: 0.8,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
     _controller.forward();
 
     Future.delayed(const Duration(seconds: 3), () {
@@ -36,9 +40,8 @@ class _SplashScreenState extends State<SplashScreen>
           PageRouteBuilder(
             transitionDuration: const Duration(milliseconds: 800),
             pageBuilder: (_, __, ___) => const LoginScreen(),
-            transitionsBuilder:
-                (_, anim, __, child) =>
-                    FadeTransition(opacity: anim, child: child),
+            transitionsBuilder: (_, anim, __, child) =>
+                FadeTransition(opacity: anim, child: child),
           ),
         );
       }
@@ -55,18 +58,7 @@ class _SplashScreenState extends State<SplashScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF0D2B1A),
-              Color(0xFF1B3A2D),
-              Color(0xFFC4622A),
-            ],
-            stops: [0.0, 0.55, 1.0],
-          ),
-        ),
+        color: AppTheme.primaryGreen,
         child: FadeTransition(
           opacity: _fadeAnim,
           child: SafeArea(
@@ -77,53 +69,27 @@ class _SplashScreenState extends State<SplashScreen>
                 // Logo
                 ScaleTransition(
                   scale: _scaleAnim,
-                  child: Container(
-                    width: 110,
-                    height: 110,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: const Color(0xFFC8A400),
-                        width: 2,
-                      ),
-                    ),
-                    child: Image.asset(
-                      'assets/images/app_icon.png',
-                      width: 80,
-                      height: 80,
-                      errorBuilder:
-                          (_, __, ___) => const Icon(
-                            Icons.eco,
-                            size: 70,
-                            color: Color(0xFFC8A400),
-                          ),
-                    ),
-                  ),
+                  child: const GaiaLogoMark(size: 108),
                 ),
-                const SizedBox(height: 48),
+                const SizedBox(height: 28),
                 // Main message
                 Text(
-                  "ENTREZ DANS L'HORIZON",
+                  'GAÏA-Conseil',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.poppins(
-                    fontSize: 26,
+                    fontSize: 28,
                     fontWeight: FontWeight.w800,
-                    letterSpacing: 3.5,
-                    color: const Color(0xFFF5F5DC),
-                    shadows: const [
-                      Shadow(color: Colors.black38, blurRadius: 12),
-                    ],
+                    letterSpacing: 0,
+                    color: Colors.white,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
                 // Subtitle
                 Text(
-                  "Projet GAÏA-CI · Côte d'Ivoire",
+                  "Conseil agricole intelligent · Côte d'Ivoire",
                   style: GoogleFonts.poppins(
                     fontSize: 13,
-                    fontStyle: FontStyle.italic,
-                    color: Colors.white.withValues(alpha: 0.65),
+                    color: Colors.white70,
                   ),
                 ),
                 const Spacer(flex: 3),
@@ -133,7 +99,7 @@ class _SplashScreenState extends State<SplashScreen>
                   child: LinearProgressIndicator(
                     backgroundColor: Colors.white.withValues(alpha: 0.15),
                     valueColor: const AlwaysStoppedAnimation<Color>(
-                      Color(0xFFC8A400),
+                      AppTheme.accentGold,
                     ),
                     minHeight: 2,
                   ),

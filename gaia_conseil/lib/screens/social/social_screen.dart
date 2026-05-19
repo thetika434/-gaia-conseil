@@ -13,17 +13,37 @@ class SocialScreen extends StatefulWidget {
 class _SocialScreenState extends State<SocialScreen> {
   List<PostModel> _posts = [];
   final _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _posts = List.from(mockPosts);
+    _loadPosts();
+  }
+
+  void _loadPosts() {
+    setState(() {
+      _posts = List.from(mockPosts)
+        ..sort((a, b) => b.postedAt.compareTo(a.postedAt));
+    });
   }
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  List<PostModel> get _filteredPosts {
+    if (_searchQuery.isEmpty) return _posts;
+    final q = _searchQuery.toLowerCase();
+    final filtered = _posts.where((p) {
+      return p.content.toLowerCase().contains(q) ||
+          p.authorName.toLowerCase().contains(q);
+    }).toList();
+    // Tri forcé par date décroissante (plus récent en haut)
+    filtered.sort((a, b) => b.postedAt.compareTo(a.postedAt));
+    return filtered;
   }
 
   void _toggleLike(PostModel post) {
@@ -82,6 +102,7 @@ class _SocialScreenState extends State<SocialScreen> {
               if (text.isEmpty) return;
               setState(() {
                 _posts.insert(
+                  // Insertion à l'index 0 (tout en haut)
                   0,
                   PostModel(
                     id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -143,6 +164,7 @@ class _SocialScreenState extends State<SocialScreen> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: TextField(
               controller: _searchController,
+              onChanged: (val) => setState(() => _searchQuery = val),
               style: GoogleFonts.poppins(fontSize: 14),
               decoration: InputDecoration(
                 hintText: 'Rechercher dans la communauté...',
@@ -151,6 +173,15 @@ class _SocialScreenState extends State<SocialScreen> {
                   color: Colors.grey[500],
                 ),
                 prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      )
+                    : null,
                 filled: true,
                 fillColor: Colors.white,
                 contentPadding: const EdgeInsets.symmetric(vertical: 0),
@@ -165,10 +196,10 @@ class _SocialScreenState extends State<SocialScreen> {
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
-              itemCount: _posts.length,
+              itemCount: _filteredPosts.length,
               itemBuilder: (context, index) => _PostCard(
-                post: _posts[index],
-                onLike: () => _toggleLike(_posts[index]),
+                post: _filteredPosts[index],
+                onLike: () => _toggleLike(_filteredPosts[index]),
               ),
             ),
           ),
@@ -267,9 +298,13 @@ class _PostCard extends StatelessWidget {
               children: [
                 Flexible(
                   child: _ActionChip(
-                    icon: post.likedByMe ? Icons.thumb_up : Icons.thumb_up_outlined,
+                    icon: post.likedByMe
+                        ? Icons.thumb_up
+                        : Icons.thumb_up_outlined,
                     label: "J'aime (${post.likes})",
-                    color: post.likedByMe ? AppTheme.primaryGreen : Colors.grey[600]!,
+                    color: post.likedByMe
+                        ? AppTheme.primaryGreen
+                        : Colors.grey[600]!,
                     onTap: onLike,
                   ),
                 ),

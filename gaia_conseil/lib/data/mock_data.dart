@@ -81,8 +81,7 @@ final List<AlertModel> mockAlerts = [
     time: DateTime.now().subtract(const Duration(hours: 6)),
   ),
   AlertModel(
-    message:
-        'Récolte estimée : +12 % par rapport à la saison précédente.',
+    message: 'Récolte estimée : +12 % par rapport à la saison précédente.',
     type: AlertType.success,
     time: DateTime.now().subtract(const Duration(hours: 12)),
   ),
@@ -257,13 +256,17 @@ class ChatMessage {
   final String text;
   final bool isUser;
   final DateTime time;
+  final GaiaMessageKind kind;
 
   const ChatMessage({
     required this.text,
     required this.isUser,
     required this.time,
+    this.kind = GaiaMessageKind.text,
   });
 }
+
+enum GaiaMessageKind { text, attachment, voice }
 
 const List<String> quickSuggestions = [
   'Bonjour, j\'ai besoin d\'une visite d\'agent',
@@ -502,7 +505,8 @@ List<AdminAlert> mockAdminAlerts = [
   AdminAlert(
     id: 'a1',
     planteurName: 'Paul Kouamé',
-    message: 'Niveau d\'humidité du sol critique : 18 %. Irrigation urgente recommandée.',
+    message:
+        'Niveau d\'humidité du sol critique : 18 %. Irrigation urgente recommandée.',
     severity: AlertSeverity.critical,
     createdAt: DateTime.now().subtract(const Duration(hours: 1)),
     isResolved: false,
@@ -619,6 +623,10 @@ class AdminMessage {
   final bool fromAdmin;
   final String content;
   final DateTime sentAt;
+  final GaiaMessageKind kind;
+  final String? fileUrl;
+  final String? fileName;
+  final String? mimeType;
 
   const AdminMessage({
     required this.id,
@@ -626,6 +634,10 @@ class AdminMessage {
     required this.fromAdmin,
     required this.content,
     required this.sentAt,
+    this.kind = GaiaMessageKind.text,
+    this.fileUrl,
+    this.fileName,
+    this.mimeType,
   });
 }
 
@@ -635,14 +647,16 @@ Map<String, List<AdminMessage>> mockConversations = {
       id: 'm1_1',
       fromName: 'Paul Kouamé',
       fromAdmin: false,
-      content: 'Bonjour, mon sol est très sec depuis plusieurs jours. Que faire ?',
+      content:
+          'Bonjour, mon sol est très sec depuis plusieurs jours. Que faire ?',
       sentAt: DateTime.now().subtract(const Duration(hours: 3)),
     ),
     AdminMessage(
       id: 'm1_2',
       fromName: 'Administrateur GAÏA',
       fromAdmin: true,
-      content: 'Bonjour Paul, nous avons bien reçu votre message. Une visite d\'agent est programmée pour votre parcelle sous 48h.',
+      content:
+          'Bonjour Paul, nous avons bien reçu votre message. Une visite d\'agent est programmée pour votre parcelle sous 48h.',
       sentAt: DateTime.now().subtract(const Duration(hours: 2)),
     ),
     AdminMessage(
@@ -665,7 +679,8 @@ Map<String, List<AdminMessage>> mockConversations = {
       id: 'm2_2',
       fromName: 'Administrateur GAÏA',
       fromAdmin: true,
-      content: 'Nous avons identifié un problème technique avec DRONE-002. Notre équipe est en cours d\'intervention.',
+      content:
+          'Nous avons identifié un problème technique avec DRONE-002. Notre équipe est en cours d\'intervention.',
       sentAt: DateTime.now().subtract(const Duration(hours: 6)),
     ),
   ],
@@ -681,7 +696,8 @@ Map<String, List<AdminMessage>> mockConversations = {
       id: 'm3_2',
       fromName: 'Administrateur GAÏA',
       fromAdmin: true,
-      content: 'Votre compte a été suspendu suite à une activité inhabituelle. Veuillez contacter le support GAÏA pour régulariser votre situation.',
+      content:
+          'Votre compte a été suspendu suite à une activité inhabituelle. Veuillez contacter le support GAÏA pour régulariser votre situation.',
       sentAt: DateTime.now().subtract(const Duration(days: 1, hours: 22)),
     ),
   ],
@@ -690,7 +706,8 @@ Map<String, List<AdminMessage>> mockConversations = {
       id: 'm4_1',
       fromName: 'Mariam Traoré',
       fromAdmin: false,
-      content: 'J\'ai soumis mon rapport de visite. Pouvez-vous confirmer la réception ?',
+      content:
+          'J\'ai soumis mon rapport de visite. Pouvez-vous confirmer la réception ?',
       sentAt: DateTime.now().subtract(const Duration(days: 1)),
     ),
     AdminMessage(
@@ -706,14 +723,16 @@ Map<String, List<AdminMessage>> mockConversations = {
       id: 'm5_1',
       fromName: 'Seydou Coulibaly',
       fromAdmin: false,
-      content: 'La batterie de mon drone est presque vide. Comment faire pour la recharger ?',
+      content:
+          'La batterie de mon drone est presque vide. Comment faire pour la recharger ?',
       sentAt: DateTime.now().subtract(const Duration(hours: 20)),
     ),
     AdminMessage(
       id: 'm5_2',
       fromName: 'Administrateur GAÏA',
       fromAdmin: true,
-      content: 'Veuillez ramener le drone à la station de base la plus proche. Un technicien vous assistera.',
+      content:
+          'Veuillez ramener le drone à la station de base la plus proche. Un technicien vous assistera.',
       sentAt: DateTime.now().subtract(const Duration(hours: 18)),
     ),
     AdminMessage(
@@ -725,6 +744,52 @@ Map<String, List<AdminMessage>> mockConversations = {
     ),
   ],
 };
+
+AdminUser _findOrCreateMessagingUser(String fullName) {
+  final normalizedName = fullName.trim().isEmpty
+      ? 'Utilisateur GAÏA'
+      : fullName.trim();
+
+  for (final user in mockAdminUsers) {
+    if (user.fullName.toLowerCase() == normalizedName.toLowerCase()) {
+      return user;
+    }
+  }
+
+  final user = AdminUser(
+    id: 'u${DateTime.now().microsecondsSinceEpoch}',
+    fullName: normalizedName,
+    email: '',
+    region: 'Région non précisée',
+    plotCount: 0,
+    joinedAt: DateTime.now(),
+  );
+  mockAdminUsers.add(user);
+  return user;
+}
+
+void sendUserMessageToAdmin({
+  required String fromName,
+  required String content,
+  GaiaMessageKind kind = GaiaMessageKind.text,
+}) {
+  final trimmed = content.trim();
+  if (trimmed.isEmpty) return;
+
+  final user = _findOrCreateMessagingUser(fromName);
+  final sentAt = DateTime.now();
+  mockConversations[user.id] ??= [];
+  mockConversations[user.id]!.add(
+    AdminMessage(
+      id: 'user_${sentAt.microsecondsSinceEpoch}',
+      fromName: user.fullName,
+      fromAdmin: false,
+      content: trimmed,
+      sentAt: sentAt,
+      kind: kind,
+    ),
+  );
+}
 
 // ─── Admin: Quick Message Templates ──────────────────────────────────────────
 

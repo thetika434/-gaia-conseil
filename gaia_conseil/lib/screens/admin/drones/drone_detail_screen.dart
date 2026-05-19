@@ -223,15 +223,8 @@ class DroneDetailScreen extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _statItem(
-                        '${drone.missionsTotales}',
-                        'Missions totales',
-                      ),
-                      Container(
-                        width: 1,
-                        height: 50,
-                        color: Colors.grey[200],
-                      ),
+                      _statItem('${drone.missionsTotales}', 'Missions totales'),
+                      Container(width: 1, height: 50, color: Colors.grey[200]),
                       _statItem(
                         '${drone.surfaceSurveillee.toStringAsFixed(1)} ha',
                         'Surface surveillée',
@@ -256,13 +249,12 @@ class DroneDetailScreen extends StatelessWidget {
                   icon: Icons.flight_takeoff,
                   color: AppTheme.primaryGreen,
                   enabled: drone.status == DroneStatus.online,
-                  onTap:
-                      () => ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Mission lancée pour ${drone.id}'),
-                          backgroundColor: AppTheme.primaryGreen,
-                        ),
-                      ),
+                  onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Mission lancée pour ${drone.id}'),
+                      backgroundColor: AppTheme.primaryGreen,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 8),
                 _actionButton(
@@ -270,13 +262,12 @@ class DroneDetailScreen extends StatelessWidget {
                   icon: Icons.build,
                   color: AppTheme.warningOrange,
                   enabled: drone.status != DroneStatus.maintenance,
-                  onTap:
-                      () => ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('${drone.id} mis en maintenance'),
-                          backgroundColor: AppTheme.warningOrange,
-                        ),
-                      ),
+                  onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('${drone.id} mis en maintenance'),
+                      backgroundColor: AppTheme.warningOrange,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 8),
                 _actionButton(
@@ -336,10 +327,7 @@ class DroneDetailScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: TextStyle(color: Colors.grey[600], fontSize: 13),
-          ),
+          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
           Flexible(
             child: Text(
               value,
@@ -408,37 +396,41 @@ class DroneDetailScreen extends StatelessWidget {
   void _confirmerDesactivation(BuildContext context) {
     showDialog(
       context: context,
-      builder:
-          (_) => AlertDialog(
-            title: Text(
-              'Confirmer la désactivation',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
-            ),
-            content: Text(
-              'Voulez-vous vraiment désactiver ${drone.id} ?',
-              style: GoogleFonts.poppins(),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Annuler'),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                ),
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.pop(context);
-                  // TODO: connect to backend
-                },
-                child: const Text(
-                  'Désactiver',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-            ],
+      builder: (_) => AlertDialog(
+        title: Text(
+          'Confirmer la désactivation',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          'Voulez-vous vraiment désactiver ${drone.id} ?',
+          style: GoogleFonts.poppins(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
           ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              final navigator = Navigator.of(context);
+              final messenger = ScaffoldMessenger.of(context);
+              navigator.pop();
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text('${drone.id} désactivé.'),
+                  backgroundColor: AppTheme.primaryGreen,
+                ),
+              );
+              navigator.pop();
+            },
+            child: const Text(
+              'Désactiver',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

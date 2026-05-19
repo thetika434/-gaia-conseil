@@ -17,25 +17,32 @@ class MarketScreen extends StatelessWidget {
         children: [
           _AppBar(),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _PriceSection(price: price, fmt: fmt),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Actualités Agricoles',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryGreen,
-                    ),
+            child: LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: constraints.maxHeight - 32,
                   ),
-                  const SizedBox(height: 12),
-                  ...mockNews.map((n) => _NewsCard(article: n)),
-                  const SizedBox(height: 24),
-                ],
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _PriceSection(price: price, fmt: fmt),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Actualités Agricoles',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryGreen,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ...mockNews.map((n) => _NewsCard(article: n)),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -191,8 +198,11 @@ class _PriceSection extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.trending_up,
-                    color: AppTheme.accentGold, size: 16),
+                const Icon(
+                  Icons.trending_up,
+                  color: AppTheme.accentGold,
+                  size: 16,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Prévision court terme : N/A',
