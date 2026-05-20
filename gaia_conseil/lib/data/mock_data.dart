@@ -257,12 +257,14 @@ class ChatMessage {
   final bool isUser;
   final DateTime time;
   final GaiaMessageKind kind;
+  final String? fileUrl;
 
   const ChatMessage({
     required this.text,
     required this.isUser,
     required this.time,
     this.kind = GaiaMessageKind.text,
+    this.fileUrl,
   });
 }
 
@@ -336,6 +338,19 @@ class AdminUser {
     required this.plotCount,
     required this.joinedAt,
   });
+
+  factory AdminUser.fromRow(Map<String, dynamic> row) {
+    return AdminUser(
+      id: row['id'].toString(),
+      fullName: row['full_name']?.toString() ?? '',
+      email: row['email']?.toString() ?? '',
+      region: row['region']?.toString() ?? '',
+      isBanned: row['is_banned'] as bool? ?? false,
+      plotCount: row['plot_count'] as int? ?? 0,
+      joinedAt: DateTime.tryParse(row['created_at']?.toString() ?? '') ??
+          DateTime.now(),
+    );
+  }
 }
 
 List<AdminUser> mockAdminUsers = [

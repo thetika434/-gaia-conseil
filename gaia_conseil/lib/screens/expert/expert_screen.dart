@@ -1,14 +1,16 @@
-import 'dart:async';
-import 'dart:typed_data';
+import 'dart:io';
+import 'dart:ui';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import '../../core/theme.dart';
 import '../../data/auth_state.dart';
 import '../../data/messaging_repository.dart';
 import '../../data/mock_data.dart';
+import '../../widgets/voice_bubble.dart';
 
 class ExpertScreen extends StatefulWidget {
   const ExpertScreen({super.key});
@@ -21,18 +23,17 @@ class _ExpertScreenState extends State<ExpertScreen> {
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
   final _audioRecorder = AudioRecorder();
-  StreamSubscription<Uint8List>? _audioSubscription;
-  final List<int> _audioBytes = [];
+  String? _recordingPath;
   bool _isRecording = false;
 
   String get _conversationKey =>
+      AuthState.currentUserId ??
       MessagingRepository.conversationKeyForName(AuthState.currentUserName);
 
   @override
   void dispose() {
     _inputController.dispose();
     _scrollController.dispose();
-    _audioSubscription?.cancel();
     _audioRecorder.dispose();
     super.dispose();
   }
@@ -61,18 +62,19 @@ class _ExpertScreenState extends State<ExpertScreen> {
       await _stopVoiceNote();
       return;
     }
-
     try {
       if (!await _audioRecorder.hasPermission()) {
         _showSnackBar('Permission micro refusée.');
         return;
       }
-
-      _audioBytes.clear();
-      final stream = await _audioRecorder.startStream(
+      final dir = await getTemporaryDirectory();
+      final path =
+          '${dir.path}/note_vocale_${DateTime.now().millisecondsSinceEpoch}.wav';
+      await _audioRecorder.start(
         const RecordConfig(encoder: AudioEncoder.wav, numChannels: 1),
+        path: path,
       );
-      _audioSubscription = stream.listen(_audioBytes.addAll);
+      _recordingPath = path;
       setState(() => _isRecording = true);
     } catch (_) {
       _showSnackBar('Impossible de démarrer l\'enregistrement vocal.');
@@ -81,17 +83,24 @@ class _ExpertScreenState extends State<ExpertScreen> {
 
   Future<void> _stopVoiceNote() async {
     try {
-      await _audioRecorder.stop();
-      await _audioSubscription?.cancel();
-      _audioSubscription = null;
-
-      final bytes = Uint8List.fromList(_audioBytes);
+      final stoppedPath = await _audioRecorder.stop();
       setState(() => _isRecording = false);
+      final path = stoppedPath ?? _recordingPath;
+      _recordingPath = null;
+      if (path == null) {
+        _showSnackBar('Fichier audio introuvable.');
+        return;
+      }
+      final file = File(path);
+      if (!await file.exists()) {
+        _showSnackBar('Note vocale vide.');
+        return;
+      }
+      final bytes = await file.readAsBytes();
       if (bytes.isEmpty) {
         _showSnackBar('Note vocale vide.');
         return;
       }
-
       await MessagingRepository.sendAttachment(
         conversationKey: _conversationKey,
         senderName: AuthState.currentUserName,
@@ -101,6 +110,7 @@ class _ExpertScreenState extends State<ExpertScreen> {
         mimeType: 'audio/wav',
         kind: GaiaMessageKind.voice,
       );
+      await file.delete();
     } catch (_) {
       setState(() => _isRecording = false);
       _showSnackBar('Impossible d\'envoyer la note vocale.');
@@ -142,14 +152,17 @@ class _ExpertScreenState extends State<ExpertScreen> {
     final topPad = MediaQuery.of(context).padding.top;
     final bottomPad = MediaQuery.of(context).padding.bottom;
     return Scaffold(
-      backgroundColor: AppTheme.lightBackground,
+      backgroundColor: Colors.transparent,
       body: Column(
         children: [
           // AppBar
-          Container(
-            color: AppTheme.primaryGreen,
-            padding: EdgeInsets.fromLTRB(20, topPad + 16, 20, 16),
-            child: Row(
+          ClipRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.35),
+                padding: EdgeInsets.fromLTRB(20, topPad + 16, 20, 16),
+                child: Row(
               children: [
                 Container(
                   width: 40,
@@ -203,6 +216,8 @@ class _ExpertScreenState extends State<ExpertScreen> {
                   ),
                 ),
               ],
+                ),
+              ),
             ),
           ),
 
@@ -231,12 +246,25 @@ class _ExpertScreenState extends State<ExpertScreen> {
                               isUser: !m.fromAdmin,
                               time: m.sentAt,
                               kind: m.kind,
+                              fileUrl: m.fileUrl,
                             ),
                           )
                           .toList();
 
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (_scrollController.hasClients &&
+                      _scrollController.position.maxScrollExtent > 0) {
+                    _scrollController.animateTo(
+                      _scrollController.position.maxScrollExtent,
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOut,
+                    );
+                  }
+                });
+
                 return ListView.builder(
                   controller: _scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(16),
                   itemCount: displayMessages.length,
                   itemBuilder: (context, index) {
@@ -399,6 +427,7 @@ class _MessageBubble extends StatelessWidget {
                 text: message.text,
                 kind: message.kind,
                 foregroundColor: Colors.white,
+                fileUrl: message.fileUrl,
               ),
             ),
             const SizedBox(height: 4),
@@ -447,6 +476,7 @@ class _MessageBubble extends StatelessWidget {
               text: message.text,
               kind: message.kind,
               foregroundColor: Colors.grey[800]!,
+              fileUrl: message.fileUrl,
             ),
           ),
           const SizedBox(height: 4),
@@ -465,48 +495,51 @@ class _MessageContent extends StatelessWidget {
     required this.text,
     required this.kind,
     required this.foregroundColor,
+    this.fileUrl,
   });
 
   final String text;
   final GaiaMessageKind kind;
   final Color foregroundColor;
+  final String? fileUrl;
 
   @override
   Widget build(BuildContext context) {
-    final icon = switch (kind) {
-      GaiaMessageKind.attachment => Icons.attach_file,
-      GaiaMessageKind.voice => Icons.play_arrow_rounded,
-      GaiaMessageKind.text => null,
-    };
-
-    if (icon == null) {
-      return Text(
-        text,
-        style: GoogleFonts.poppins(
-          color: foregroundColor,
-          fontSize: 13,
-          height: 1.4,
-        ),
+    if (kind == GaiaMessageKind.voice) {
+      return VoiceBubble(
+        fileUrl: fileUrl,
+        foregroundColor: foregroundColor,
       );
     }
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: foregroundColor, size: 18),
-        const SizedBox(width: 8),
-        Flexible(
-          child: Text(
-            text,
-            style: GoogleFonts.poppins(
-              color: foregroundColor,
-              fontSize: 13,
-              height: 1.4,
-              fontWeight: FontWeight.w500,
+    if (kind == GaiaMessageKind.attachment) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.attach_file, color: foregroundColor, size: 18),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              text,
+              style: GoogleFonts.poppins(
+                color: foregroundColor,
+                fontSize: 13,
+                height: 1.4,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      );
+    }
+
+    return Text(
+      text,
+      style: GoogleFonts.poppins(
+        color: foregroundColor,
+        fontSize: 13,
+        height: 1.4,
+      ),
     );
   }
 }

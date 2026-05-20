@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'dart:ui';
 import '../../core/theme.dart';
 import '../../data/auth_state.dart';
+import '../../widgets/gaia_background_wrapper.dart';
 import '../auth/login_screen.dart';
 import 'dashboard/admin_dashboard_screen.dart';
 import 'users/users_screen.dart';
@@ -18,6 +20,7 @@ class AdminScaffold extends StatefulWidget {
 
 class _AdminScaffoldState extends State<AdminScaffold> {
   int _selectedIndex = 0;
+  late final List<Widget> _screens;
 
   static const List<_NavItem> _navItems = [
     _NavItem(icon: Icons.dashboard_outlined, label: 'Tableau de Bord'),
@@ -27,13 +30,19 @@ class _AdminScaffoldState extends State<AdminScaffold> {
     _NavItem(icon: Icons.auto_awesome_outlined, label: 'Conseil IA'),
   ];
 
-  static const List<Widget> _screens = [
-    AdminDashboardScreen(),
-    UsersScreen(),
-    DronesScreen(),
-    AdminMessagingScreen(),
-    AiAdviceScreen(),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _screens = [
+      AdminDashboardScreen(onNavigate: _navigateTo),
+      const UsersScreen(),
+      const DronesScreen(),
+      const AdminMessagingScreen(),
+      const AiAdviceScreen(),
+    ];
+  }
+
+  void _navigateTo(int index) => setState(() => _selectedIndex = index);
 
   void _logout() {
     AuthState.logout();
@@ -47,66 +56,76 @@ class _AdminScaffoldState extends State<AdminScaffold> {
   Widget build(BuildContext context) {
     final isWide = MediaQuery.of(context).size.width > 600;
 
-    return Scaffold(
-      backgroundColor: AppTheme.lightBackground,
-      drawer: isWide ? null : _buildDrawer(),
-      body: Column(
-        children: [
-          // ── Fixed header ──────────────────────────────────────────────
-          _AdminHeader(
-            onLogout: _logout,
-            showMenuIcon: !isWide,
-          ),
-          // ── Body ─────────────────────────────────────────────────────
-          Expanded(
-            child: isWide
-                ? Row(
-                    children: [
-                      _Sidebar(
-                        selectedIndex: _selectedIndex,
-                        navItems: _navItems,
-                        onSelect: (i) => setState(() => _selectedIndex = i),
-                      ),
-                      Expanded(
-                        child: IndexedStack(
-                          index: _selectedIndex,
-                          children: _screens,
-                        ),
-                      ),
-                    ],
-                  )
-                : IndexedStack(
-                    index: _selectedIndex,
-                    children: _screens,
-                  ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: isWide
-          ? null
-          : BottomNavigationBar(
-              currentIndex: _selectedIndex,
-              onTap: (i) => setState(() => _selectedIndex = i),
-              backgroundColor: AppTheme.primaryGreen,
-              selectedItemColor: AppTheme.accentGold,
-              unselectedItemColor: Colors.white54,
-              type: BottomNavigationBarType.fixed,
-              selectedLabelStyle:
-                  GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600),
-              unselectedLabelStyle: GoogleFonts.poppins(fontSize: 10),
-              items: _navItems
-                  .map((item) => BottomNavigationBarItem(
-                        icon: Icon(item.icon),
-                        label: item.label,
-                      ))
-                  .toList(),
+    return GaiaBackgroundWrapper(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        extendBody: true,
+        drawer: isWide ? null : _buildDrawer(),
+        body: Column(
+          children: [
+            // ── Fixed header ────────────────────────────────────────────
+            _AdminHeader(
+              onLogout: _logout,
+              showMenuIcon: !isWide,
             ),
+            // ── Body ───────────────────────────────────────────────────
+            Expanded(
+              child: isWide
+                  ? Row(
+                      children: [
+                        _Sidebar(
+                          selectedIndex: _selectedIndex,
+                          navItems: _navItems,
+                          onSelect: (i) => setState(() => _selectedIndex = i),
+                        ),
+                        Expanded(
+                          child: IndexedStack(
+                            index: _selectedIndex,
+                            children: _screens,
+                          ),
+                        ),
+                      ],
+                    )
+                  : IndexedStack(
+                      index: _selectedIndex,
+                      children: _screens,
+                    ),
+            ),
+          ],
+        ),
+        bottomNavigationBar: isWide
+            ? null
+            : ClipRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  child: BottomNavigationBar(
+                    currentIndex: _selectedIndex,
+                    onTap: (i) => setState(() => _selectedIndex = i),
+                    backgroundColor: Colors.black.withValues(alpha: 0.35),
+                    selectedItemColor: AppTheme.accentGold,
+                    unselectedItemColor: Colors.white54,
+                    type: BottomNavigationBarType.fixed,
+                    selectedLabelStyle: GoogleFonts.poppins(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    unselectedLabelStyle: GoogleFonts.poppins(fontSize: 10),
+                    items: _navItems
+                        .map((item) => BottomNavigationBarItem(
+                              icon: Icon(item.icon),
+                              label: item.label,
+                            ))
+                        .toList(),
+                  ),
+                ),
+              ),
+      ),
     );
   }
 
   Widget _buildDrawer() {
     return Drawer(
-      backgroundColor: AppTheme.primaryGreen,
+      backgroundColor: Colors.black.withValues(alpha: 0.75),
       child: SafeArea(
         child: Column(
           children: [
@@ -158,8 +177,28 @@ class _AdminHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: _AdminHeaderContent(onLogout: onLogout, showMenuIcon: showMenuIcon),
+      ),
+    );
+  }
+}
+
+class _AdminHeaderContent extends StatelessWidget {
+  final VoidCallback onLogout;
+  final bool showMenuIcon;
+
+  const _AdminHeaderContent({
+    required this.onLogout,
+    required this.showMenuIcon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      color: AppTheme.primaryGreen,
+      color: Colors.black.withValues(alpha: 0.35),
       padding: EdgeInsets.only(
         top: MediaQuery.of(context).padding.top + 8,
         bottom: 8,
@@ -227,10 +266,18 @@ class _Sidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 200,
-      color: AppTheme.primaryGreen,
-      child: Column(
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          width: 200,
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.45),
+            border: Border(
+              right: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+            ),
+          ),
+          child: Column(
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 20),
@@ -263,6 +310,8 @@ class _Sidebar extends StatelessWidget {
             ),
           ),
         ],
+          ),
+        ),
       ),
     );
   }

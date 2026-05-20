@@ -4,18 +4,17 @@ import 'package:mime/mime.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/supabase_config.dart';
-import 'mock_data.dart';
+import 'mock_data.dart'; // conservé pour AdminMessage, GaiaMessageKind
 
 class MessagingRepository {
   MessagingRepository._();
 
   static final client = Supabase.instance.client;
 
+  /// Convertit un nom en clé de conversation slug (fallback uniquement).
+  /// Préférer AuthState.currentUserId comme clé quand disponible.
   static String conversationKeyForName(String name) {
     final normalized = name.trim().toLowerCase();
-    for (final user in mockAdminUsers) {
-      if (user.fullName.toLowerCase() == normalized) return user.id;
-    }
     return normalized
         .replaceAll(RegExp(r"[^a-z0-9à-ÿ]+", caseSensitive: false), '_')
         .replaceAll(RegExp(r'_+'), '_')

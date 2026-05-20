@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'dart:ui';
 import '../../core/theme.dart';
 import '../../data/mock_data.dart';
+import '../../data/auth_state.dart';
 
 class SocialScreen extends StatefulWidget {
   const SocialScreen({super.key});
@@ -22,10 +24,7 @@ class _SocialScreenState extends State<SocialScreen> {
   }
 
   void _loadPosts() {
-    setState(() {
-      _posts = List.from(mockPosts)
-        ..sort((a, b) => b.postedAt.compareTo(a.postedAt));
-    });
+    setState(() => _posts = []);
   }
 
   @override
@@ -106,8 +105,13 @@ class _SocialScreenState extends State<SocialScreen> {
                   0,
                   PostModel(
                     id: DateTime.now().millisecondsSinceEpoch.toString(),
-                    authorName: 'Paul Kouamé',
-                    authorInitials: 'PK',
+                    authorName: AuthState.currentUserName,
+                    authorInitials: AuthState.currentUserName
+                        .split(' ')
+                        .where((p) => p.isNotEmpty)
+                        .take(2)
+                        .map((p) => p[0].toUpperCase())
+                        .join(),
                     avatarColor: AppTheme.primaryGreen,
                     content: text,
                     postedAt: DateTime.now(),
@@ -129,65 +133,74 @@ class _SocialScreenState extends State<SocialScreen> {
   Widget build(BuildContext context) {
     final topPad = MediaQuery.of(context).padding.top;
     return Scaffold(
-      backgroundColor: AppTheme.lightBackground,
+      backgroundColor: Colors.transparent,
       body: Column(
         children: [
-          // AppBar
-          Container(
-            color: AppTheme.primaryGreen,
-            padding: EdgeInsets.fromLTRB(20, topPad + 16, 20, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Espace Communauté',
-                  style: GoogleFonts.poppins(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Échangez avec les agriculteurs GAÏA',
-                  style: GoogleFonts.poppins(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Search bar
-          Container(
-            color: AppTheme.primaryGreen,
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (val) => setState(() => _searchQuery = val),
-              style: GoogleFonts.poppins(fontSize: 14),
-              decoration: InputDecoration(
-                hintText: 'Rechercher dans la communauté...',
-                hintStyle: GoogleFonts.poppins(
-                  fontSize: 13,
-                  color: Colors.grey[500],
-                ),
-                prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() => _searchQuery = '');
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
+          // Glassmorphic header (title + search bar merged)
+          ClipRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.35),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(20, topPad + 16, 20, 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Espace Communauté',
+                            style: GoogleFonts.poppins(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Échangez avec les agriculteurs GAÏA',
+                            style: GoogleFonts.poppins(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: (val) => setState(() => _searchQuery = val),
+                        style: GoogleFonts.poppins(fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: 'Rechercher dans la communauté...',
+                          hintStyle: GoogleFonts.poppins(
+                            fontSize: 13,
+                            color: Colors.grey[500],
+                          ),
+                          prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear, size: 18),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() => _searchQuery = '');
+                                  },
+                                )
+                              : null,
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -195,7 +208,12 @@ class _SocialScreenState extends State<SocialScreen> {
           // Posts list
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.fromLTRB(
+                16,
+                16,
+                16,
+                16 + MediaQuery.of(context).padding.bottom,
+              ),
               itemCount: _filteredPosts.length,
               itemBuilder: (context, index) => _PostCard(
                 post: _filteredPosts[index],
@@ -233,6 +251,7 @@ class _PostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
+      color: Colors.white.withValues(alpha: 0.88),
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
         padding: const EdgeInsets.all(16),

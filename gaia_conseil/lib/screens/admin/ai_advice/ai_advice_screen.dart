@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme.dart';
 import '../../../data/mock_data.dart';
+import '../../../data/profiles_repository.dart';
 import '../messaging/admin_messaging_screen.dart';
 import '../drones/drones_screen.dart';
 
@@ -22,10 +25,27 @@ class _AiAdviceScreenState extends State<AiAdviceScreen> {
   String _searchQuery = '';
   String _categoryFilter = 'Tous';
 
+  List<AdminUser> _users = List.unmodifiable(mockAdminUsers);
+  StreamSubscription<List<AdminUser>>? _profileSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _profileSub = ProfilesRepository.watchPlanteurs().listen((users) {
+      if (mounted) setState(() => _users = users);
+    });
+  }
+
+  @override
+  void dispose() {
+    _profileSub?.cancel();
+    super.dispose();
+  }
+
   AdminUser? get _selectedUser {
     if (_selectedUserId == null) return null;
     try {
-      return mockAdminUsers.firstWhere((u) => u.id == _selectedUserId);
+      return _users.firstWhere((u) => u.id == _selectedUserId);
     } catch (_) {
       return null;
     }
@@ -43,7 +63,7 @@ class _AiAdviceScreenState extends State<AiAdviceScreen> {
   }
 
   List<AdminUser> get _filteredUsers {
-    return mockAdminUsers.where((u) {
+    return _users.where((u) {
       final matchesSearch =
           u.fullName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           u.region.toLowerCase().contains(_searchQuery.toLowerCase());
@@ -144,7 +164,7 @@ class _AiAdviceScreenState extends State<AiAdviceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final totalUsers = mockAdminUsers.length;
+    final totalUsers = _users.length;
     final totalDrones = mockDrones.length;
     final onlineDrones = mockDrones
         .where((d) => d.status == DroneStatus.online)
@@ -210,8 +230,10 @@ class _AiAdviceScreenState extends State<AiAdviceScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const DronesScreen(),
-                        ), // Navigation vers l'écran des drones
+                          builder: (context) => const DronesScreen(
+                            initialFilter: DroneStatus.online,
+                          ),
+                        ),
                       );
                     },
                   ),
@@ -606,18 +628,22 @@ class _SummaryCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(icon, color: color, size: 24),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Text(
               value,
               style: GoogleFonts.poppins(
-                fontSize: 20,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             Text(
               label,
-              style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[600]),
+              style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[600]),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

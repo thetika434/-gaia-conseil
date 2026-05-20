@@ -1,13 +1,16 @@
 import 'dart:async';
-import 'dart:typed_data';
+import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import '../../../core/theme.dart';
 import '../../../data/messaging_repository.dart';
 import '../../../data/mock_data.dart';
+import '../../../data/profiles_repository.dart';
+import '../../../widgets/voice_bubble.dart';
 
 class AdminMessagingScreen extends StatefulWidget {
   const AdminMessagingScreen({super.key});
@@ -19,11 +22,21 @@ class AdminMessagingScreen extends StatefulWidget {
 class _AdminMessagingScreenState extends State<AdminMessagingScreen> {
   String? _selectedUserId;
   final _messageController = TextEditingController();
+  List<AdminUser> _cachedUsers = [];
+  StreamSubscription<List<AdminUser>>? _usersSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _usersSub = ProfilesRepository.watchPlanteurs().listen((users) {
+      if (mounted) setState(() => _cachedUsers = users);
+    });
+  }
 
   AdminUser? get _selectedUser {
     if (_selectedUserId == null) return null;
     try {
-      return mockAdminUsers.firstWhere((u) => u.id == _selectedUserId);
+      return _cachedUsers.firstWhere((u) => u.id == _selectedUserId);
     } catch (_) {
       return null;
     }
@@ -41,21 +54,6 @@ class _AdminMessagingScreenState extends State<AdminMessagingScreen> {
         fromAdmin: true,
         content: content.trim(),
       );
-
-      // Mise à jour locale du mock pour que le tri du panneau latéral réagisse immédiatement
-      setState(() {
-        mockConversations[_selectedUserId!] ??= [];
-        mockConversations[_selectedUserId!]!.add(
-          AdminMessage(
-            id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
-            fromName: 'Administrateur GAÏA',
-            fromAdmin: true,
-            content: content.trim(),
-            sentAt: DateTime.now(),
-          ),
-        );
-      });
-
       _messageController.clear();
     } catch (_) {
       if (!mounted) return;
@@ -67,6 +65,7 @@ class _AdminMessagingScreenState extends State<AdminMessagingScreen> {
 
   @override
   void dispose() {
+    _usersSub?.cancel();
     _messageController.dispose();
     super.dispose();
   }
@@ -76,63 +75,72 @@ class _AdminMessagingScreenState extends State<AdminMessagingScreen> {
     final isWide = MediaQuery.of(context).size.width > 600;
 
     if (isWide) {
-      return Row(
+      return Material(
+        type: MaterialType.transparency,
+        child: Row(
+          children: [
+            SizedBox(width: 220, child: _buildUserList()),
+            const VerticalDivider(width: 1),
+            Expanded(
+              child: _ConversationPanel(
+                user: _selectedUser,
+                messageController: _messageController,
+                onSend: _sendMessage,
+                onSelectUser: (id) => setState(() => _selectedUserId = id),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Narrow: stacked
+    if (_selectedUserId == null) {
+      return Material(
+        type: MaterialType.transparency,
+        child: _buildUserList(
+          onSelect: (id) => setState(() => _selectedUserId = id),
+        ),
+      );
+    }
+    return Material(
+      type: MaterialType.transparency,
+      child: Column(
         children: [
-          SizedBox(width: 220, child: _buildUserList()),
-          const VerticalDivider(width: 1),
+          // Back header
+          Container(
+            color: AppTheme.primaryGreen,
+            child: SafeArea(
+              bottom: false,
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () => setState(() => _selectedUserId = null),
+                  ),
+                  Text(
+                    _selectedUser?.fullName ?? '',
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
           Expanded(
             child: _ConversationPanel(
               user: _selectedUser,
               messageController: _messageController,
               onSend: _sendMessage,
               onSelectUser: (id) => setState(() => _selectedUserId = id),
+              hideHeader: true,
             ),
           ),
         ],
-      );
-    }
-
-    // Narrow: stacked
-    if (_selectedUserId == null) {
-      return _buildUserList(
-        onSelect: (id) => setState(() => _selectedUserId = id),
-      );
-    }
-    return Column(
-      children: [
-        // Back header
-        Container(
-          color: AppTheme.primaryGreen,
-          child: SafeArea(
-            bottom: false,
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () => setState(() => _selectedUserId = null),
-                ),
-                Text(
-                  _selectedUser?.fullName ?? '',
-                  style: GoogleFonts.poppins(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        Expanded(
-          child: _ConversationPanel(
-            user: _selectedUser,
-            messageController: _messageController,
-            onSend: _sendMessage,
-            onSelectUser: (id) => setState(() => _selectedUserId = id),
-            hideHeader: true,
-          ),
-        ),
-      ],
+      ),
     );
   }
 
@@ -149,43 +157,46 @@ class _AdminMessageContent extends StatelessWidget {
     required this.content,
     required this.kind,
     required this.foregroundColor,
+    this.fileUrl,
   });
 
   final String content;
   final GaiaMessageKind kind;
   final Color foregroundColor;
+  final String? fileUrl;
 
   @override
   Widget build(BuildContext context) {
-    final icon = switch (kind) {
-      GaiaMessageKind.attachment => Icons.attach_file,
-      GaiaMessageKind.voice => Icons.play_arrow_rounded,
-      GaiaMessageKind.text => null,
-    };
-
-    if (icon == null) {
-      return Text(
-        content,
-        style: GoogleFonts.poppins(fontSize: 13, color: foregroundColor),
+    if (kind == GaiaMessageKind.voice) {
+      return VoiceBubble(
+        fileUrl: fileUrl,
+        foregroundColor: foregroundColor,
       );
     }
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: foregroundColor, size: 18),
-        const SizedBox(width: 8),
-        Flexible(
-          child: Text(
-            content,
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              color: foregroundColor,
-              fontWeight: FontWeight.w500,
+    if (kind == GaiaMessageKind.attachment) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.attach_file, color: foregroundColor, size: 18),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              content,
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: foregroundColor,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      );
+    }
+
+    return Text(
+      content,
+      style: GoogleFonts.poppins(fontSize: 13, color: foregroundColor),
     );
   }
 }
@@ -212,26 +223,30 @@ class _UserListWidgetState extends State<_UserListWidget> {
     return name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?';
   }
 
+  List<AdminUser> _filter(List<AdminUser> all) {
+    return all.where((u) {
+      final matchesSearch =
+          u.fullName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          u.region.toLowerCase().contains(_searchQuery.toLowerCase());
+      if (_statusFilter == 'Actifs') return matchesSearch && !u.isBanned;
+      if (_statusFilter == 'Suspendus') return matchesSearch && u.isBanned;
+      return matchesSearch;
+    }).toList()
+      ..sort((a, b) => b.joinedAt.compareTo(a.joinedAt));
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Filtrage et Tri des utilisateurs par date du dernier message (décroissant)
-    final filteredUsers =
-        mockAdminUsers.where((u) {
-          final matchesSearch =
-              u.fullName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-              u.region.toLowerCase().contains(_searchQuery.toLowerCase());
+    return StreamBuilder<List<AdminUser>>(
+      stream: ProfilesRepository.watchPlanteurs(),
+      builder: (context, snapshot) {
+        final filteredUsers = _filter(snapshot.data ?? []);
+        return _buildContent(filteredUsers);
+      },
+    );
+  }
 
-          if (_statusFilter == 'Actifs') return matchesSearch && !u.isBanned;
-          if (_statusFilter == 'Suspendus') return matchesSearch && u.isBanned;
-          return matchesSearch;
-        }).toList()..sort((a, b) {
-          final msgsA = mockConversations[a.id] ?? [];
-          final msgsB = mockConversations[b.id] ?? [];
-          final lastA = msgsA.isNotEmpty ? msgsA.last.sentAt : a.joinedAt;
-          final lastB = msgsB.isNotEmpty ? msgsB.last.sentAt : b.joinedAt;
-          return lastB.compareTo(lastA);
-        });
-
+  Widget _buildContent(List<AdminUser> filteredUsers) {
     return Container(
       color: const Color(0xFFF8F8F8),
       child: Column(
@@ -306,10 +321,7 @@ class _UserListWidgetState extends State<_UserListWidget> {
               itemBuilder: (_, i) {
                 final user = filteredUsers[i];
                 final selected = user.id == widget.selectedId;
-                final msgs = mockConversations[user.id] ?? [];
-                final lastMsg = msgs.isNotEmpty
-                    ? msgs.last.content
-                    : 'Aucun message';
+                const lastMsg = 'Aucun message';
                 return InkWell(
                   onTap: () => widget.onSelect(user.id),
                   child: Container(
@@ -378,14 +390,6 @@ class _UserListWidgetState extends State<_UserListWidget> {
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  if (msgs.isNotEmpty)
-                                    Text(
-                                      '${msgs.last.sentAt.hour}:${msgs.last.sentAt.minute.toString().padLeft(2, '0')}',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 10,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
                                 ],
                               ),
                               Text(
@@ -437,13 +441,11 @@ class _ConversationPanel extends StatefulWidget {
 class _ConversationPanelState extends State<_ConversationPanel> {
   final _audioRecorder = AudioRecorder();
   final _scrollController = ScrollController();
-  StreamSubscription<Uint8List>? _audioSubscription;
-  final List<int> _audioBytes = [];
+  String? _recordingPath;
   bool _isRecording = false;
 
   @override
   void dispose() {
-    _audioSubscription?.cancel();
     _audioRecorder.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -506,9 +508,20 @@ class _ConversationPanelState extends State<_ConversationPanel> {
               final messages = List<AdminMessage>.from(snapshot.data ?? [])
                 ..sort((a, b) => a.sentAt.compareTo(b.sentAt));
 
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (_scrollController.hasClients &&
+                    _scrollController.position.maxScrollExtent > 0) {
+                  _scrollController.animateTo(
+                    _scrollController.position.maxScrollExtent,
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOut,
+                  );
+                }
+              });
+
               return ListView.builder(
-                reverse: false, // Index 0 (le plus ancien) est en haut
                 controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(12),
                 itemCount: messages.length,
                 itemBuilder: (_, i) {
@@ -554,6 +567,7 @@ class _ConversationPanelState extends State<_ConversationPanel> {
                             foregroundColor: isAdmin
                                 ? Colors.white
                                 : Colors.black87,
+                            fileUrl: msg.fileUrl,
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -722,17 +736,19 @@ class _ConversationPanelState extends State<_ConversationPanel> {
       await _stopVoiceNote();
       return;
     }
-
     try {
       if (!await _audioRecorder.hasPermission()) {
         _showSnackBar('Permission micro refusée.');
         return;
       }
-      _audioBytes.clear();
-      final stream = await _audioRecorder.startStream(
+      final dir = await getTemporaryDirectory();
+      final path =
+          '${dir.path}/note_vocale_admin_${DateTime.now().millisecondsSinceEpoch}.wav';
+      await _audioRecorder.start(
         const RecordConfig(encoder: AudioEncoder.wav, numChannels: 1),
+        path: path,
       );
-      _audioSubscription = stream.listen(_audioBytes.addAll);
+      _recordingPath = path;
       setState(() => _isRecording = true);
     } catch (_) {
       _showSnackBar('Impossible de démarrer l\'enregistrement vocal.');
@@ -742,18 +758,25 @@ class _ConversationPanelState extends State<_ConversationPanel> {
   Future<void> _stopVoiceNote() async {
     final selectedUser = widget.user;
     if (selectedUser == null) return;
-
     try {
-      await _audioRecorder.stop();
-      await _audioSubscription?.cancel();
-      _audioSubscription = null;
-      final bytes = Uint8List.fromList(_audioBytes);
+      final stoppedPath = await _audioRecorder.stop();
       setState(() => _isRecording = false);
+      final path = stoppedPath ?? _recordingPath;
+      _recordingPath = null;
+      if (path == null) {
+        _showSnackBar('Fichier audio introuvable.');
+        return;
+      }
+      final file = File(path);
+      if (!await file.exists()) {
+        _showSnackBar('Note vocale vide.');
+        return;
+      }
+      final bytes = await file.readAsBytes();
       if (bytes.isEmpty) {
         _showSnackBar('Note vocale vide.');
         return;
       }
-
       await MessagingRepository.sendAttachment(
         conversationKey: selectedUser.id,
         senderName: 'Administrateur GAÏA',
@@ -764,6 +787,7 @@ class _ConversationPanelState extends State<_ConversationPanel> {
         mimeType: 'audio/wav',
         kind: GaiaMessageKind.voice,
       );
+      await file.delete();
     } catch (_) {
       setState(() => _isRecording = false);
       _showSnackBar('Impossible d\'envoyer la note vocale.');

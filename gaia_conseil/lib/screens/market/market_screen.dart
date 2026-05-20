@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'dart:ui';
 import '../../core/theme.dart';
 import '../../data/mock_data.dart';
 
@@ -12,14 +13,19 @@ class MarketScreen extends StatelessWidget {
     final price = mockCacaoPrice;
     final fmt = DateFormat('dd/MM/yyyy HH:mm');
     return Scaffold(
-      backgroundColor: AppTheme.lightBackground,
+      backgroundColor: Colors.transparent,
       body: Column(
         children: [
           _AppBar(),
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) => SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  16,
+                  16,
+                  16 + MediaQuery.of(context).padding.bottom,
+                ),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
                     minHeight: constraints.maxHeight - 32,
@@ -34,7 +40,7 @@ class MarketScreen extends StatelessWidget {
                         style: GoogleFonts.poppins(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryGreen,
+                          color: Colors.white,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -58,26 +64,31 @@ class _AppBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final topPad = MediaQuery.of(context).padding.top;
-    return Container(
-      color: AppTheme.primaryGreen,
-      padding: EdgeInsets.fromLTRB(20, topPad + 16, 20, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Marché Cacao',
-            style: GoogleFonts.poppins(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          color: Colors.black.withValues(alpha: 0.35),
+          padding: EdgeInsets.fromLTRB(20, topPad + 16, 20, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Marché Cacao',
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Prix et actualités en temps réel',
+                style: GoogleFonts.poppins(color: Colors.white70, fontSize: 12),
+              ),
+            ],
           ),
-          const SizedBox(height: 2),
-          Text(
-            'Prix et actualités en temps réel',
-            style: GoogleFonts.poppins(color: Colors.white70, fontSize: 12),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -330,6 +341,7 @@ class _NewsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final dateFmt = DateFormat('dd MMM yyyy', 'fr_FR');
     return Card(
+      color: Colors.white.withValues(alpha: 0.88),
       margin: const EdgeInsets.only(bottom: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

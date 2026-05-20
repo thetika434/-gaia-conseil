@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme.dart';
 import '../../../data/mock_data.dart';
+import '../../../data/profiles_repository.dart';
 
 class UsersScreen extends StatefulWidget {
   const UsersScreen({super.key});
@@ -20,10 +21,10 @@ class _UsersScreenState extends State<UsersScreen> {
     super.dispose();
   }
 
-  List<AdminUser> get _filteredUsers {
-    if (_searchQuery.isEmpty) return mockAdminUsers;
+  List<AdminUser> _applyFilter(List<AdminUser> all) {
+    if (_searchQuery.isEmpty) return all;
     final q = _searchQuery.toLowerCase();
-    return mockAdminUsers.where((u) {
+    return all.where((u) {
       return u.fullName.toLowerCase().contains(q) ||
           u.email.toLowerCase().contains(q) ||
           u.region.toLowerCase().contains(q);
@@ -85,9 +86,8 @@ class _UsersScreenState extends State<UsersScreen> {
           ? 'Voulez-vous bannir ${user.fullName} ? Cette action lui retirera l\'accès à l\'application.'
           : 'Voulez-vous rétablir l\'accès de ${user.fullName} ?',
       confirmLabel: isBanning ? 'Bannir' : 'Débannir',
-      confirmColor:
-          isBanning ? AppTheme.warningOrange : AppTheme.successGreen,
-      onConfirm: () => setState(() => user.isBanned = !user.isBanned),
+      confirmColor: isBanning ? AppTheme.warningOrange : AppTheme.successGreen,
+      onConfirm: () => ProfilesRepository.updateBanStatus(user.id, isBanning),
     );
   }
 
@@ -98,82 +98,98 @@ class _UsersScreenState extends State<UsersScreen> {
           'Attention : cette action est irréversible. Supprimer ${user.fullName} effacera définitivement son compte et toutes ses données.',
       confirmLabel: 'Supprimer',
       confirmColor: AppTheme.errorRed,
-      onConfirm: () => setState(() => mockAdminUsers.remove(user)),
+      onConfirm: () => ProfilesRepository.deleteProfile(user.id),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _filteredUsers;
-    return Column(
-      children: [
-        // ── Search bar ───────────────────────────────────────────────
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: TextField(
-            controller: _searchController,
-            onChanged: (v) => setState(() => _searchQuery = v),
-            style: GoogleFonts.poppins(fontSize: 14),
-            decoration: InputDecoration(
-              hintText: 'Rechercher un planteur...',
-              hintStyle: GoogleFonts.poppins(fontSize: 14, color: Colors.grey),
-              prefixIcon: const Icon(Icons.search, color: Colors.grey),
-              suffixIcon: _searchQuery.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear, color: Colors.grey),
-                      onPressed: () {
-                        _searchController.clear();
-                        setState(() => _searchQuery = '');
-                      },
-                    )
-                  : null,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+    return StreamBuilder<List<AdminUser>>(
+      stream: ProfilesRepository.watchPlanteurs(),
+      builder: (context, snapshot) {
+        final filtered = _applyFilter(snapshot.data ?? []);
+        final isLoading = snapshot.connectionState == ConnectionState.waiting;
+
+        return Column(
+          children: [
+            // ── Search bar ────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (v) => setState(() => _searchQuery = v),
+                style: GoogleFonts.poppins(fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: 'Rechercher un planteur...',
+                  hintStyle:
+                      GoogleFonts.poppins(fontSize: 14, color: Colors.grey),
+                  prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, color: Colors.grey),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                        )
+                      : null,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(
+                        color: AppTheme.primaryGreen, width: 1.5),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                ),
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide:
-                    const BorderSide(color: AppTheme.primaryGreen, width: 1.5),
-              ),
-              filled: true,
-              fillColor: Colors.white,
-              contentPadding: const EdgeInsets.symmetric(vertical: 12),
             ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          child: Row(
-            children: [
-              Text(
-                '${filtered.length} utilisateur${filtered.length > 1 ? 's' : ''}',
-                style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
+                children: [
+                  if (isLoading)
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  else
+                    Text(
+                      '${filtered.length} utilisateur${filtered.length > 1 ? 's' : ''}',
+                      style:
+                          GoogleFonts.poppins(fontSize: 13, color: Colors.grey),
+                    ),
+                ],
               ),
-            ],
-          ),
-        ),
-        // ── User list ────────────────────────────────────────────────
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-            itemCount: filtered.length,
-            itemBuilder: (_, i) {
-              final user = filtered[i];
-              return _UserCard(
-                user: user,
-                onToggleBan: () => _toggleBan(user),
-                onDelete: () => _deleteUser(user),
-                onQuickMessage: () => _showQuickMessageSheet(user),
-              );
-            },
-          ),
-        ),
-      ],
+            ),
+            // ── User list ─────────────────────────────────────────────
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                itemCount: filtered.length,
+                itemBuilder: (_, i) {
+                  final user = filtered[i];
+                  return _UserCard(
+                    user: user,
+                    onToggleBan: () => _toggleBan(user),
+                    onDelete: () => _deleteUser(user),
+                    onQuickMessage: () => _showQuickMessageSheet(user),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

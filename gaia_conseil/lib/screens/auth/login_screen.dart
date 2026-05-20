@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'dart:ui';
 import '../../core/theme.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import '../../data/auth_state.dart';
 import '../../widgets/main_scaffold.dart';
-import '../../widgets/gaia_logo_mark.dart';
+import '../../widgets/gaia_background_wrapper.dart';
 import '../admin/admin_scaffold.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -25,6 +27,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _plotCountController = TextEditingController();
+  final _totalAreaController = TextEditingController();
 
   static const _regions = [
     'Yamoussoukro',
@@ -44,264 +48,363 @@ class _LoginScreenState extends State<LoginScreen> {
     _passwordController.dispose();
     _nameController.dispose();
     _confirmPasswordController.dispose();
+    _plotCountController.dispose();
+    _totalAreaController.dispose();
     super.dispose();
   }
 
   Future<void> _handleLogin() async {
-    setState(() {
-      _errorMessage = '';
-      _isLoading = true;
-    });
-    await Future.delayed(const Duration(milliseconds: 600));
+    setState(() { _errorMessage = ''; _isLoading = true; });
 
-    final email = _emailController.text.trim();
+    final email    = _emailController.text.trim();
     final password = _passwordController.text;
 
-    if (_isAdmin) {
-      if (email == 'admin@gaia-ci.com' && password == 'admin123') {
-        AuthState.loginAsAdmin('Administrateur GAÏA');
-        if (!mounted) return;
+    try {
+      final res = await Supabase.instance.client.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+      final user = res.user;
+      if (user == null) throw const AuthException('Connexion échouée.');
+
+      final row = await Supabase.instance.client
+          .from('profiles')
+          .select()
+          .eq('id', user.id)
+          .maybeSingle();
+
+      final role = row?['role'] as String? ?? 'planteur';
+      final name = row?['full_name'] as String? ?? email;
+
+      if (!mounted) return;
+
+      if (role == 'administrateur') {
+        AuthState.loginAsAdmin(name: name, userId: user.id);
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const AdminScaffold()),
         );
-        return;
-      }
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Identifiants administrateur incorrects.';
-      });
-    } else {
-      if (email == 'paul@gaia-ci.com' && password == 'paul123') {
-        AuthState.loginAsUser('Paul Kouamé');
-        if (!mounted) return;
+      } else {
+        AuthState.loginAsUser(name: name, userId: user.id);
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const MainScaffold()),
         );
-        return;
       }
+    } on AuthException catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Email ou mot de passe incorrect.';
+        _errorMessage = _localizeError(e.message);
+      });
+    } catch (_) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Connexion impossible. Vérifiez votre connexion.';
       });
     }
   }
 
-  Future<void> _handleRegister() async {
-    final name = _nameController.text.trim();
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
-    final confirm = _confirmPasswordController.text;
+  String _localizeError(String msg) {
+    if (msg.contains('Invalid login credentials')) {
+      return 'Email ou mot de passe incorrect.';
+    }
+    if (msg.contains('Email not confirmed')) {
+      return 'Email non confirmé. Vérifiez votre boîte mail.';
+    }
+    if (msg.contains('User already registered')) {
+      return 'Un compte existe déjà avec cet email.';
+    }
+    if (msg.contains('at least 6 characters')) {
+      return 'Le mot de passe doit comporter au moins 6 caractères.';
+    }
+    return msg;
+  }
 
-    if (name.isEmpty || email.isEmpty || password.isEmpty) {
-      setState(() {
-        _errorMessage = 'Veuillez remplir tous les champs.';
-      });
+  Future<void> _handleRegister() async {
+    final name    = _nameController.text.trim();
+    final raw     = _emailController.text.trim().toLowerCase();
+    final password = _passwordController.text;
+    final confirm  = _confirmPasswordController.text;
+
+    // Construire l'email complet : ajoute @gaia-ci.com si absent
+    final finalEmail = raw.endsWith('@gaia-ci.com')
+        ? raw
+        : '$raw@gaia-ci.com';
+
+    if (name.isEmpty || raw.isEmpty || password.isEmpty) {
+      setState(() { _errorMessage = 'Veuillez remplir tous les champs.'; });
       return;
     }
     if (password != confirm) {
-      setState(() {
-        _errorMessage = 'Les mots de passe ne correspondent pas.';
-      });
+      setState(() { _errorMessage = 'Les mots de passe ne correspondent pas.'; });
       return;
     }
     if (_selectedRegion == null) {
-      setState(() {
-        _errorMessage = 'Veuillez sélectionner votre région.';
-      });
+      setState(() { _errorMessage = 'Veuillez sélectionner votre région.'; });
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = '';
-    });
-    await Future.delayed(const Duration(milliseconds: 800));
+    setState(() { _isLoading = true; _errorMessage = ''; });
 
-    AuthState.loginAsUser(name);
-    if (!mounted) return;
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const MainScaffold()),
-    );
+    try {
+      final res = await Supabase.instance.client.auth.signUp(
+        email: finalEmail,
+        password: password,
+      );
+      final user = res.user;
+      if (user == null) throw const AuthException('Inscription échouée.');
+
+      const role = 'planteur';
+
+      final plotCount =
+          int.tryParse(_plotCountController.text.trim()) ?? 0;
+      final totalArea =
+          double.tryParse(_totalAreaController.text.trim().replaceAll(',', '.')) ?? 0.0;
+
+      await Supabase.instance.client.from('profiles').insert({
+        'id':         user.id,
+        'email':      finalEmail,
+        'full_name':  name,
+        'role':       role,
+        'region':     _selectedRegion,
+        'plot_count': plotCount,
+        'total_area': totalArea,
+      });
+
+      if (!mounted) return;
+      AuthState.loginAsUser(name: name, userId: user.id);
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const MainScaffold()),
+      );
+    } on AuthException catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = _localizeError(e.message);
+      });
+    } catch (_) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Inscription impossible. Vérifiez votre connexion.';
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Stack(
-        // Utilisation de Stack pour superposer les widgets
-        children: [
-          const Positioned.fill(child: _LoginHero()),
-          Align(
-            // Positionne le formulaire en bas
-            alignment: Alignment.bottomCenter,
-            child: FractionallySizedBox(
-              // Contrôle la hauteur du formulaire dynamiquement
-              heightFactor: _isRegisterMode
-                  ? 0.8
-                  : 0.7, // Ajuste la hauteur selon le mode
-              child: Container(
-                width: double.infinity,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-                ),
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(28, 28, 28, 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildModeToggle(),
-                      const SizedBox(height: 20),
-                      if (!_isRegisterMode) ...[
-                        _buildRoleToggle(),
-                        const SizedBox(height: 20),
-                      ],
-                      if (_isRegisterMode) ...[
-                        _buildTextField(
-                          controller: _nameController,
-                          label: 'Nom complet',
-                          icon: Icons.person_outline,
+      body: GaiaBackgroundWrapper(
+        applyOverlay: true,
+        child: Stack(
+          children: [
+            // Logo and header section
+            const Positioned.fill(child: _LoginHero()),
+            // Translucent login form card
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: FractionallySizedBox(
+                heightFactor: _isRegisterMode ? 0.92 : 0.7,
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(32),
+                  ),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                    child: Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(32),
                         ),
-                        const SizedBox(height: 14),
-                      ],
-                      _buildTextField(
-                        controller: _emailController,
-                        label: 'Email',
-                        icon: Icons.email_outlined,
-                        keyboardType: TextInputType.emailAddress,
-                      ),
-                      const SizedBox(height: 14),
-                      _buildPasswordField(
-                        controller: _passwordController,
-                        label: 'Mot de passe',
-                        obscure: _obscurePassword,
-                        onToggle: () => setState(
-                          () => _obscurePassword = !_obscurePassword,
+                        border: Border(
+                          top: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.3),
+                            width: 1.5,
+                          ),
                         ),
                       ),
-                      if (_isRegisterMode) ...[
-                        const SizedBox(height: 14),
-                        _buildPasswordField(
-                          controller: _confirmPasswordController,
-                          label: 'Confirmer le mot de passe',
-                          obscure: _obscureConfirmPassword,
-                          onToggle: () => setState(
-                            () => _obscureConfirmPassword =
-                                !_obscureConfirmPassword,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        DropdownButtonFormField<String>(
-                          initialValue: _selectedRegion,
-                          decoration: _inputDecoration(
-                            label: 'Région',
-                            icon: Icons.location_on_outlined,
-                          ),
-                          items: _regions
-                              .map(
-                                (r) => DropdownMenuItem(
-                                  value: r,
-                                  child: Text(
-                                    r,
-                                    style: GoogleFonts.poppins(fontSize: 14),
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (v) => setState(() => _selectedRegion = v),
-                          hint: Text(
-                            'Sélectionner une région',
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 14),
-                      if (_errorMessage.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Text(
-                            _errorMessage,
-                            style: GoogleFonts.poppins(
-                              color: AppTheme.errorRed,
-                              fontSize: 13,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      SizedBox(
-                        height: 52,
-                        child: ElevatedButton(
-                          onPressed: _isLoading
-                              ? null
-                              : (_isRegisterMode
-                                    ? _handleRegister
-                                    : _handleLogin),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryGreen,
-                            foregroundColor: AppTheme.accentGold,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            elevation: 0,
-                          ),
-                          child: _isLoading
-                              ? const SizedBox(
-                                  height: 22,
-                                  width: 22,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.5,
-                                    color: AppTheme.accentGold,
-                                  ),
-                                )
-                              : Text(
-                                  _isRegisterMode
-                                      ? "S'inscrire"
-                                      : 'Se connecter',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.accentGold,
-                                  ),
-                                ),
-                        ),
-                      ),
-                      if (!_isRegisterMode) ...[
-                        const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF0F7F0),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: AppTheme.primaryGreen.withValues(
-                                alpha: 0.2,
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(28, 28, 28, 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildModeToggle(),
+                            const SizedBox(height: 20),
+                            if (!_isRegisterMode) ...[
+                              _buildRoleToggle(),
+                              const SizedBox(height: 20),
+                            ],
+                            if (_isRegisterMode) ...[
+                              _buildTextField(
+                                controller: _nameController,
+                                label: 'Nom complet',
+                                icon: Icons.person_outline,
+                              ),
+                              const SizedBox(height: 14),
+                            ],
+                            if (_isRegisterMode)
+                              _buildIdentifierField()
+                            else
+                              _buildTextField(
+                                controller: _emailController,
+                                label: 'Email',
+                                icon: Icons.email_outlined,
+                                keyboardType: TextInputType.emailAddress,
+                              ),
+                            const SizedBox(height: 14),
+                            _buildPasswordField(
+                              controller: _passwordController,
+                              label: 'Mot de passe',
+                              obscure: _obscurePassword,
+                              onToggle: () => setState(
+                                () => _obscurePassword = !_obscurePassword,
                               ),
                             ),
-                          ),
-                          child: Text(
-                            'Démo — Planteur: paul@gaia-ci.com / paul123\nAdmin: admin@gaia-ci.com / admin123',
-                            style: GoogleFonts.poppins(
-                              fontSize: 11,
-                              color: Colors.grey[600],
+                            if (_isRegisterMode) ...[
+                              const SizedBox(height: 14),
+                              _buildPasswordField(
+                                controller: _confirmPasswordController,
+                                label: 'Confirmer le mot de passe',
+                                obscure: _obscureConfirmPassword,
+                                onToggle: () => setState(
+                                  () => _obscureConfirmPassword =
+                                      !_obscureConfirmPassword,
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              DropdownButtonFormField<String>(
+                                initialValue: _selectedRegion,
+                                decoration: _inputDecoration(
+                                  label: 'Région',
+                                  icon: Icons.location_on_outlined,
+                                ),
+                                dropdownColor: Colors.white,
+                                items: _regions
+                                    .map(
+                                      (r) => DropdownMenuItem(
+                                        value: r,
+                                        child: Text(
+                                          r,
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 14,
+                                            color: Colors.black87,
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (v) =>
+                                    setState(() => _selectedRegion = v),
+                                hint: Text(
+                                  'Sélectionner une région',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    color: Colors.white.withValues(alpha: 0.6),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              _buildTextField(
+                                controller: _plotCountController,
+                                label: 'Nombre de parcelles',
+                                icon: Icons.grid_view_outlined,
+                                keyboardType: TextInputType.number,
+                              ),
+                              const SizedBox(height: 14),
+                              _buildTextField(
+                                controller: _totalAreaController,
+                                label: 'Superficie totale (ha)',
+                                icon: Icons.straighten_outlined,
+                                keyboardType: const TextInputType.numberWithOptions(
+                                  decimal: true,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 14),
+                            if (_errorMessage.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: Text(
+                                  _errorMessage,
+                                  style: GoogleFonts.poppins(
+                                    color: AppTheme.errorRed,
+                                    fontSize: 13,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            SizedBox(
+                              height: 52,
+                              child: ElevatedButton(
+                                onPressed: _isLoading
+                                    ? null
+                                    : (_isRegisterMode
+                                          ? _handleRegister
+                                          : _handleLogin),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primaryGreen,
+                                  foregroundColor: AppTheme.accentGold,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                child: _isLoading
+                                    ? const SizedBox(
+                                        height: 22,
+                                        width: 22,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.5,
+                                          color: AppTheme.accentGold,
+                                        ),
+                                      )
+                                    : Text(
+                                        _isRegisterMode
+                                            ? "S'inscrire"
+                                            : 'Se connecter',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppTheme.accentGold,
+                                        ),
+                                      ),
+                              ),
                             ),
-                            textAlign: TextAlign.center,
-                          ),
+                            if (!_isRegisterMode) ...[
+                              const SizedBox(height: 16),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.25),
+                                    width: 1.2,
+                                  ),
+                                ),
+                                child: Text(
+                                  'Démo — Planteur: paul@gaia-ci.com / paul123\nAdmin: admin@gaia-ci.com / admin123',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 11,
+                                    color: Colors.white.withValues(alpha: 0.85),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
-                      ],
-                    ],
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -309,8 +412,12 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildModeToggle() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F0F0),
+        color: Colors.white.withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.25),
+          width: 1.2,
+        ),
       ),
       padding: const EdgeInsets.all(4),
       child: Row(
@@ -343,13 +450,20 @@ class _LoginScreenState extends State<LoginScreen> {
       children: [
         Text(
           'Connexion en tant que :',
-          style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[600]),
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            color: Colors.white.withValues(alpha: 0.85),
+          ),
         ),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFFF0F0F0),
+            color: Colors.white.withValues(alpha: 0.18),
             borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.25),
+              width: 1.2,
+            ),
           ),
           padding: const EdgeInsets.all(4),
           child: Row(
@@ -397,7 +511,9 @@ class _LoginScreenState extends State<LoginScreen> {
             style: GoogleFonts.poppins(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: selected ? Colors.white : Colors.grey,
+              color: selected
+                  ? Colors.white
+                  : Colors.white.withValues(alpha: 0.7),
             ),
           ),
         ),
@@ -414,8 +530,43 @@ class _LoginScreenState extends State<LoginScreen> {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
-      style: GoogleFonts.poppins(fontSize: 14),
+      style: GoogleFonts.poppins(
+        fontSize: 14,
+        color: Colors.white,
+        fontWeight: FontWeight.w500,
+      ),
+      cursorColor: Colors.white,
       decoration: _inputDecoration(label: label, icon: icon),
+    );
+  }
+
+  Widget _buildIdentifierField() {
+    return TextFormField(
+      controller: _emailController,
+      keyboardType: TextInputType.text,
+      autocorrect: false,
+      style: GoogleFonts.poppins(
+        fontSize: 14,
+        color: Colors.white,
+        fontWeight: FontWeight.w500,
+      ),
+      cursorColor: Colors.white,
+      decoration: _inputDecoration(
+        label: 'Identifiant',
+        icon: Icons.alternate_email,
+      ).copyWith(
+        hintText: 'ex: kofi.bamba',
+        hintStyle: GoogleFonts.poppins(
+          fontSize: 13,
+          color: Colors.white.withValues(alpha: 0.45),
+        ),
+        suffixText: '@gaia-ci.com',
+        suffixStyle: GoogleFonts.poppins(
+          fontSize: 13,
+          color: Colors.white.withValues(alpha: 0.55),
+          fontWeight: FontWeight.w500,
+        ),
+      ),
     );
   }
 
@@ -428,7 +579,12 @@ class _LoginScreenState extends State<LoginScreen> {
     return TextFormField(
       controller: controller,
       obscureText: obscure,
-      style: GoogleFonts.poppins(fontSize: 14),
+      style: GoogleFonts.poppins(
+        fontSize: 14,
+        color: Colors.white,
+        fontWeight: FontWeight.w500,
+      ),
+      cursorColor: Colors.white,
       decoration: _inputDecoration(label: label, icon: Icons.lock_outline)
           .copyWith(
             suffixIcon: IconButton(
@@ -436,7 +592,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 obscure
                     ? Icons.visibility_outlined
                     : Icons.visibility_off_outlined,
-                color: Colors.grey,
+                color: Colors.white.withValues(alpha: 0.7),
               ),
               onPressed: onToggle,
             ),
@@ -450,22 +606,42 @@ class _LoginScreenState extends State<LoginScreen> {
   }) {
     return InputDecoration(
       labelText: label,
-      labelStyle: GoogleFonts.poppins(fontSize: 14, color: Colors.grey),
-      prefixIcon: Icon(icon, color: AppTheme.primaryGreen, size: 20),
+      labelStyle: GoogleFonts.poppins(
+        fontSize: 14,
+        color: Colors.white.withValues(alpha: 0.75),
+      ),
+      hintStyle: GoogleFonts.poppins(
+        fontSize: 14,
+        color: Colors.white.withValues(alpha: 0.6),
+      ),
+      prefixIcon: Icon(
+        icon,
+        color: AppTheme.primaryGreen.withValues(alpha: 0.95),
+        size: 20,
+      ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+        borderSide: BorderSide(
+          color: Colors.white.withValues(alpha: 0.3),
+          width: 1.2,
+        ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+        borderSide: BorderSide(
+          color: Colors.white.withValues(alpha: 0.3),
+          width: 1.2,
+        ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppTheme.primaryGreen, width: 1.8),
+        borderSide: BorderSide(
+          color: AppTheme.primaryGreen.withValues(alpha: 0.95),
+          width: 1.8,
+        ),
       ),
       filled: true,
-      fillColor: const Color(0xFFFAFAFA),
+      fillColor: Colors.white.withValues(alpha: 0.08),
       contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
     );
   }
@@ -478,56 +654,31 @@ class _LoginHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Image.asset(
-          'assets/images/fond.png',
-          fit: BoxFit.cover,
-          alignment: Alignment.center,
-          repeat: ImageRepeat.noRepeat,
-        ),
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withValues(alpha: 0.22),
-                Colors.black.withValues(alpha: 0.45),
-              ],
+    return Align(
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'GAÏA-Conseil',
+            style: GoogleFonts.poppins(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              letterSpacing: 0,
             ),
           ),
-        ),
-        Align(
-          alignment: Alignment.center,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const GaiaLogoMark(size: 96),
-              const SizedBox(height: 14),
-              Text(
-                'GAÏA-Conseil',
-                style: GoogleFonts.poppins(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  letterSpacing: 0,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                "Projet GAÏA-CI · Côte d'Ivoire",
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  color: Colors.white70,
-                  letterSpacing: 0,
-                ),
-              ),
-            ],
+          const SizedBox(height: 6),
+          Text(
+            "Projet GAÏA-CI · Côte d'Ivoire",
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: Colors.white70,
+              letterSpacing: 0,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

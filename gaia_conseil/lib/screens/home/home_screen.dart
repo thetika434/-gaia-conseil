@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'dart:ui';
 import '../../core/theme.dart';
 import '../../data/auth_state.dart';
 import '../../data/mock_data.dart';
-import '../../widgets/gaia_logo_mark.dart';
-import '../auth/login_screen.dart';
+import '../profile/planter_profile_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -13,13 +13,18 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = mockPlantation;
     return Scaffold(
-      backgroundColor: AppTheme.lightBackground,
+      backgroundColor: Colors.transparent,
       body: Column(
         children: [
           _Header(plantation: p),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.fromLTRB(
+                16,
+                16,
+                16,
+                16 + MediaQuery.of(context).padding.bottom,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -58,41 +63,45 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final topPad = MediaQuery.of(context).padding.top;
-    return Container(
-      color: AppTheme.primaryGreen,
-      padding: EdgeInsets.fromLTRB(20, topPad + 16, 20, 20),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Bonjour, ${plantation.farmerName}',
-                  style: GoogleFonts.poppins(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Votre plantation est sous contrôle',
-                  style: GoogleFonts.poppins(
-                    color: Colors.white70,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Row(
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          color: Colors.black.withValues(alpha: 0.35),
+          padding: EdgeInsets.fromLTRB(20, topPad + 16, 20, 20),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const GaiaLogoMark(size: 44),
-              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Bonjour, ${AuthState.currentUserName.isNotEmpty ? AuthState.currentUserName : plantation.farmerName}',
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Votre plantation est sous contrôle',
+                      style: GoogleFonts.poppins(
+                        color: Colors.white70,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               GestureDetector(
-                onTap: () => _showProfileSheet(context),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const PlanterProfileScreen(),
+                  ),
+                ),
                 child: Container(
                   width: 44,
                   height: 44,
@@ -109,92 +118,11 @@ class _Header extends StatelessWidget {
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  void _showProfileSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 20),
-            CircleAvatar(
-              radius: 32,
-              backgroundColor: AppTheme.primaryGreen,
-              child: Text(
-                AuthState.currentUserName.isNotEmpty
-                    ? AuthState.currentUserName[0].toUpperCase()
-                    : 'P',
-                style: GoogleFonts.poppins(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              AuthState.currentUserName,
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Text(
-              'Planteur · GAÏA-CI',
-              style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  AuthState.logout();
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    (route) => false,
-                  );
-                },
-                icon: const Icon(Icons.logout, color: Colors.red),
-                label: Text(
-                  'Se déconnecter',
-                  style: GoogleFonts.poppins(
-                    color: Colors.red,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.red),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 // ─── Health Card ──────────────────────────────────────────────────────────────
@@ -207,6 +135,7 @@ class _HealthCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isOptimal = plantation.healthStatus == 'Optimale';
     return Card(
+      color: Colors.white.withValues(alpha: 0.88),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Row(
@@ -319,6 +248,7 @@ class _SensorCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
+      color: Colors.white.withValues(alpha: 0.88),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
         child: Column(
@@ -358,6 +288,7 @@ class _NutrientCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
+      color: Colors.white.withValues(alpha: 0.88),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -491,7 +422,7 @@ class _ActionButton extends StatelessWidget {
       );
     }
     return Material(
-      color: Colors.white,
+      color: Colors.white.withValues(alpha: 0.88),
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -561,7 +492,7 @@ class _AlertCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.white.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(12),
         border: Border(left: BorderSide(color: _borderColor, width: 4)),
         boxShadow: [
@@ -613,6 +544,7 @@ class _WeatherCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
+      color: Colors.white.withValues(alpha: 0.88),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -699,7 +631,7 @@ class _SectionTitle extends StatelessWidget {
       style: GoogleFonts.poppins(
         fontSize: 16,
         fontWeight: FontWeight.bold,
-        color: AppTheme.primaryGreen,
+        color: Colors.white,
       ),
     );
   }

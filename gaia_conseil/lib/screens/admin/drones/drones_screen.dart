@@ -1,11 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme.dart';
+import '../../../data/auth_state.dart';
 import '../../../data/mock_data.dart';
+import '../../../data/profiles_repository.dart';
 import 'drone_detail_screen.dart';
 
 class DronesScreen extends StatefulWidget {
-  const DronesScreen({super.key});
+  const DronesScreen({super.key, this.initialFilter});
+
+  final DroneStatus? initialFilter;
 
   @override
   State<DronesScreen> createState() => _DronesScreenState();
@@ -17,16 +23,30 @@ class _DronesScreenState extends State<DronesScreen> {
   String _tri = 'nom'; // 'nom' | 'batterie' | 'activite'
   final TextEditingController _searchController = TextEditingController();
 
+  // Maps Supabase profile UUID → full name for owner resolution.
+  // Drones whose ownerId has no match fall back to the current user's name.
+  Map<String, String> _ownerNames = {};
+  StreamSubscription<List<AdminUser>>? _profilesSub;
+
   @override
   void initState() {
     super.initState();
+    _filtreActif = widget.initialFilter;
     _searchController.addListener(
       () => setState(() => _recherche = _searchController.text),
     );
+    _profilesSub = ProfilesRepository.watchPlanteurs().listen((users) {
+      if (mounted) {
+        setState(() {
+          _ownerNames = {for (final u in users) u.id: u.fullName};
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
+    _profilesSub?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -98,27 +118,37 @@ class _DronesScreenState extends State<DronesScreen> {
         .where((d) => d.status == DroneStatus.maintenance)
         .length;
     final filtres = _dronesFiltres;
+    final canPop = Navigator.canPop(context);
 
-    return Column(
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // ── Title row with sort button ──────────────────────────────────
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 8, 4),
+          padding: const EdgeInsets.fromLTRB(8, 16, 8, 4),
           child: Row(
             children: [
+              if (canPop)
+                IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
+                  padding: const EdgeInsets.only(right: 4),
+                  constraints: const BoxConstraints(),
+                ),
               Expanded(
                 child: Text(
                   'Flotte de Drones',
                   style: GoogleFonts.poppins(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryGreen,
+                    color: Colors.white,
                   ),
                 ),
               ),
               PopupMenuButton<String>(
-                icon: const Icon(Icons.sort, color: AppTheme.primaryGreen),
+                icon: const Icon(Icons.sort, color: Colors.white70),
                 tooltip: 'Trier par',
                 onSelected: (val) => setState(() => _tri = val),
                 itemBuilder: (_) => [
@@ -338,7 +368,8 @@ class _DronesScreenState extends State<DronesScreen> {
                                           ),
                                         ),
                                         Text(
-                                          drone.ownerName,
+                                          _ownerNames[drone.ownerId] ??
+                                              AuthState.currentUserName,
                                           style: GoogleFonts.poppins(
                                             fontSize: 13,
                                             color: Colors.grey[600],
@@ -464,6 +495,7 @@ class _DronesScreenState extends State<DronesScreen> {
                 ),
         ),
       ],
+      ),
     );
   }
 

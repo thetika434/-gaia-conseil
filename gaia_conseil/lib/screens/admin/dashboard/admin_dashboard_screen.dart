@@ -1,16 +1,39 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme.dart';
 import '../../../data/mock_data.dart';
+import '../../../data/profiles_repository.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
-  const AdminDashboardScreen({super.key});
+  const AdminDashboardScreen({super.key, this.onNavigate});
+
+  /// Callback to switch the admin scaffold to a given tab index.
+  final void Function(int)? onNavigate;
 
   @override
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
 }
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
+  int _planteurCount = mockAdminUsers.length;
+  StreamSubscription<List<AdminUser>>? _profileSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _profileSub = ProfilesRepository.watchPlanteurs().listen((users) {
+      if (mounted) setState(() => _planteurCount = users.length);
+    });
+  }
+
+  @override
+  void dispose() {
+    _profileSub?.cancel();
+    super.dispose();
+  }
+
   void _resolveAlert(AdminAlert alert) {
     setState(() {
       alert.isResolved = true;
@@ -28,7 +51,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         .length;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        20,
+        20,
+        20 + MediaQuery.of(context).padding.bottom,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -37,13 +65,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             style: GoogleFonts.poppins(
               fontSize: 22,
               fontWeight: FontWeight.bold,
-              color: AppTheme.primaryGreen,
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             'Vue d\'ensemble du système GAÏA',
-            style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey),
+            style: GoogleFonts.poppins(fontSize: 13, color: Colors.white70),
           ),
           const SizedBox(height: 20),
 
@@ -58,33 +86,38 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             children: [
               _StatCard(
                 icon: Icons.people,
-                value: '${mockAdminUsers.length}',
+                value: '$_planteurCount',
                 label: 'Planteurs',
                 iconColor: AppTheme.primaryGreen,
+                onTap: () => widget.onNavigate?.call(1),
               ),
               _StatCard(
                 icon: Icons.flight_takeoff,
                 value: '${mockDrones.length}',
                 label: 'Drones total',
                 iconColor: Colors.blue,
+                onTap: () => widget.onNavigate?.call(2),
               ),
               _StatCard(
                 icon: Icons.wifi,
                 value: '$onlineDrones',
                 label: 'Drones en ligne',
                 iconColor: AppTheme.successGreen,
+                onTap: () => widget.onNavigate?.call(2),
               ),
               _StatCard(
                 icon: Icons.warning_amber_rounded,
                 value: '$activeAlerts',
                 label: 'Alertes actives',
                 iconColor: AppTheme.warningOrange,
+                onTap: () => widget.onNavigate?.call(4),
               ),
               _StatCard(
                 icon: Icons.error_rounded,
                 value: '$criticalAlerts',
                 label: 'Alertes critiques',
                 iconColor: AppTheme.errorRed,
+                onTap: () => widget.onNavigate?.call(4),
               ),
             ],
           ),
@@ -96,17 +129,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             style: GoogleFonts.poppins(
               fontSize: 17,
               fontWeight: FontWeight.w600,
-              color: AppTheme.primaryGreen,
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             'Dernières données capteurs par planteur',
-            style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
+            style: GoogleFonts.poppins(fontSize: 12, color: Colors.white70),
           ),
           const SizedBox(height: 12),
           Card(
             elevation: 2,
+            color: Colors.white.withValues(alpha: 0.88),
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16)),
             child: SingleChildScrollView(
@@ -155,7 +189,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             style: GoogleFonts.poppins(
               fontSize: 17,
               fontWeight: FontWeight.w600,
-              color: AppTheme.primaryGreen,
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 12),
@@ -176,20 +210,27 @@ class _StatCard extends StatelessWidget {
   final String value;
   final String label;
   final Color iconColor;
+  final VoidCallback? onTap;
 
   const _StatCard({
     required this.icon,
     required this.value,
     required this.label,
     required this.iconColor,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Card(
       elevation: 2,
+      color: Colors.white.withValues(alpha: 0.88),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
+      clipBehavior: Clip.hardEdge,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           children: [
@@ -210,17 +251,19 @@ class _StatCard extends StatelessWidget {
                   Text(
                     value,
                     style: GoogleFonts.poppins(
-                      fontSize: 24,
+                      fontSize: 22,
                       fontWeight: FontWeight.bold,
                       color: Colors.black87,
                       height: 1.1,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   Text(
                     label,
                     style: GoogleFonts.poppins(
                         fontSize: 11, color: Colors.grey[600]),
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -228,6 +271,7 @@ class _StatCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -271,7 +315,7 @@ class _AlertCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.white.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(14),
         border: Border(left: BorderSide(color: _borderColor, width: 4)),
         boxShadow: [
