@@ -318,100 +318,111 @@ class _UserListWidgetState extends State<_UserListWidget> {
           Expanded(
             child: ListView.builder(
               itemCount: filteredUsers.length,
-              itemBuilder: (_, i) {
-                final user = filteredUsers[i];
-                final selected = user.id == widget.selectedId;
-                const lastMsg = 'Aucun message';
-                return InkWell(
-                  onTap: () => widget.onSelect(user.id),
-                  child: Container(
-                    color: selected
-                        ? AppTheme.primaryGreen.withValues(alpha: 0.08)
-                        : Colors.transparent,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                    child: Row(
-                      children: [
-                        Stack(
-                          children: [
-                            CircleAvatar(
-                              radius: 22,
-                              backgroundColor: selected
-                                  ? AppTheme.primaryGreen
-                                  : AppTheme.primaryGreen.withValues(
-                                      alpha: 0.5,
-                                    ),
-                              child: Text(
-                                _initials(user.fullName),
-                                style: GoogleFonts.poppins(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                            if (!user.isBanned)
-                              Positioned(
-                                right: 0,
-                                bottom: 0,
-                                child: Container(
-                                  width: 12,
-                                  height: 12,
-                                  decoration: BoxDecoration(
-                                    color: Colors.green,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Colors.white,
-                                      width: 2,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      user.fullName,
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Text(
-                                lastMsg,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 11,
-                                  color: Colors.grey,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
+              itemBuilder: (_, i) => _UserTile(
+                user: filteredUsers[i],
+                selected: filteredUsers[i].id == widget.selectedId,
+                initials: _initials(filteredUsers[i].fullName),
+                onTap: () => widget.onSelect(filteredUsers[i].id),
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── User Tile (with live last-message preview) ────────────────────────────────
+
+class _UserTile extends StatelessWidget {
+  const _UserTile({
+    required this.user,
+    required this.selected,
+    required this.initials,
+    required this.onTap,
+  });
+
+  final AdminUser user;
+  final bool selected;
+  final String initials;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        color: selected
+            ? AppTheme.primaryGreen.withValues(alpha: 0.08)
+            : Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Stack(
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: selected
+                      ? AppTheme.primaryGreen
+                      : AppTheme.primaryGreen.withValues(alpha: 0.5),
+                  child: Text(
+                    initials,
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                if (!user.isBanned)
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    user.fullName,
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  StreamBuilder<String?>(
+                    stream: MessagingRepository.watchLastMessagePreview(user.id),
+                    builder: (context, snapshot) {
+                      final preview = snapshot.data ?? 'Aucun message';
+                      return Text(
+                        preview,
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: Colors.grey,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -622,8 +633,10 @@ class _ConversationPanelState extends State<_ConversationPanel> {
           ),
         ),
         // Input bar
-        Container(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+        SafeArea(
+          top: false,
+          child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
           decoration: BoxDecoration(
             color: Colors.white,
             boxShadow: [
@@ -701,6 +714,7 @@ class _ConversationPanelState extends State<_ConversationPanel> {
               ),
             ],
           ),
+        ),
         ),
       ],
     );

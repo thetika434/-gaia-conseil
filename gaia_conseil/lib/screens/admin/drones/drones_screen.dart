@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme.dart';
-import '../../../data/auth_state.dart';
+import '../../../data/drones_repository.dart';
 import '../../../data/mock_data.dart';
 import '../../../data/profiles_repository.dart';
 import 'drone_detail_screen.dart';
@@ -23,8 +23,9 @@ class _DronesScreenState extends State<DronesScreen> {
   String _tri = 'nom'; // 'nom' | 'batterie' | 'activite'
   final TextEditingController _searchController = TextEditingController();
 
-  // Maps Supabase profile UUID → full name for owner resolution.
-  // Drones whose ownerId has no match fall back to the current user's name.
+  List<DroneModel> _allDrones = [];
+  StreamSubscription<List<DroneModel>>? _dronesSub;
+  // UUID → full_name looked up from profiles (assigned_to FK join).
   Map<String, String> _ownerNames = {};
   StreamSubscription<List<AdminUser>>? _profilesSub;
 
@@ -35,6 +36,10 @@ class _DronesScreenState extends State<DronesScreen> {
     _searchController.addListener(
       () => setState(() => _recherche = _searchController.text),
     );
+    _dronesSub = DronesRepository.watchAllDrones().listen((drones) {
+      if (!mounted) return;
+      setState(() => _allDrones = drones);
+    });
     _profilesSub = ProfilesRepository.watchPlanteurs().listen((users) {
       if (mounted) {
         setState(() {
@@ -46,18 +51,25 @@ class _DronesScreenState extends State<DronesScreen> {
 
   @override
   void dispose() {
+    _dronesSub?.cancel();
     _profilesSub?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
+  /// Resolves the display name for a drone's owner: profiles table wins,
+  /// then falls back to the stored ownerName field (populated for mock rows).
+  String _ownerLabel(DroneModel d) =>
+      _ownerNames[d.ownerId] ?? (d.ownerName.isNotEmpty ? d.ownerName : d.ownerId);
+
   List<DroneModel> get _dronesFiltres {
-    var liste = mockDrones.where((d) {
+    var liste = _allDrones.where((d) {
       final okStatut = _filtreActif == null || d.status == _filtreActif;
+      final ownerLabel = _ownerLabel(d);
       final okRecherche =
           _recherche.isEmpty ||
           d.id.toLowerCase().contains(_recherche.toLowerCase()) ||
-          d.ownerName.toLowerCase().contains(_recherche.toLowerCase());
+          ownerLabel.toLowerCase().contains(_recherche.toLowerCase());
       return okStatut && okRecherche;
     }).toList();
     switch (_tri) {
@@ -65,8 +77,11 @@ class _DronesScreenState extends State<DronesScreen> {
         liste.sort((a, b) => b.batteryLevel.compareTo(a.batteryLevel));
       case 'activite':
         liste.sort((a, b) => b.lastSeen.compareTo(a.lastSeen));
-      default:
-        liste.sort((a, b) => a.id.compareTo(b.id));
+      default: // 'nom': group by planter name, then by drone id within each planter
+        liste.sort((a, b) {
+          final cmp = _ownerLabel(a).compareTo(_ownerLabel(b));
+          return cmp != 0 ? cmp : a.id.compareTo(b.id);
+        });
     }
     return liste;
   }
@@ -108,15 +123,9 @@ class _DronesScreenState extends State<DronesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final online = mockDrones
-        .where((d) => d.status == DroneStatus.online)
-        .length;
-    final offline = mockDrones
-        .where((d) => d.status == DroneStatus.offline)
-        .length;
-    final maintenance = mockDrones
-        .where((d) => d.status == DroneStatus.maintenance)
-        .length;
+    final online      = _allDrones.where((d) => d.status == DroneStatus.online).length;
+    final offline     = _allDrones.where((d) => d.status == DroneStatus.offline).length;
+    final maintenance = _allDrones.where((d) => d.status == DroneStatus.maintenance).length;
     final filtres = _dronesFiltres;
     final canPop = Navigator.canPop(context);
 
@@ -218,7 +227,7 @@ class _DronesScreenState extends State<DronesScreen> {
             child: Row(
               children: [
                 _filterChip(
-                  label: 'Tous (${mockDrones.length})',
+                  label: 'Tous (${_allDrones.length})',
                   color: AppTheme.primaryGreen,
                   isSelected: _filtreActif == null,
                   onTap: () => setState(() => _filtreActif = null),
@@ -368,8 +377,7 @@ class _DronesScreenState extends State<DronesScreen> {
                                           ),
                                         ),
                                         Text(
-                                          _ownerNames[drone.ownerId] ??
-                                              AuthState.currentUserName,
+                                          _ownerLabel(drone),
                                           style: GoogleFonts.poppins(
                                             fontSize: 13,
                                             color: Colors.grey[600],

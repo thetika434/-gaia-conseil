@@ -133,6 +133,24 @@ class MessagingRepository {
     );
   }
 
+  /// Returns a stream of the most-recent message preview text for a conversation.
+  /// Emits null when the conversation has no messages yet.
+  static Stream<String?> watchLastMessagePreview(String conversationKey) {
+    return client
+        .from('messages')
+        .stream(primaryKey: ['id'])
+        .eq('conversation_key', conversationKey)
+        .order('created_at', ascending: false)
+        .map((rows) {
+          if (rows.isEmpty) return null;
+          final content = rows.first['content']?.toString() ?? '';
+          final role = rows.first['sender_role']?.toString() ?? 'user';
+          final prefix = role == 'admin' ? 'Vous : ' : '';
+          final full = '$prefix$content';
+          return full.length > 32 ? '${full.substring(0, 32)}…' : full;
+        });
+  }
+
   static String _safeFileName(String fileName) {
     final cleaned = fileName.trim().replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
     return cleaned.isEmpty ? 'piece_jointe' : cleaned;

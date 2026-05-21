@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme.dart';
 import '../../../data/mock_data.dart';
 import '../../../data/profiles_repository.dart';
+import '../../../data/drones_repository.dart';
 import '../messaging/admin_messaging_screen.dart';
 import '../drones/drones_screen.dart';
 
@@ -27,6 +28,9 @@ class _AiAdviceScreenState extends State<AiAdviceScreen> {
 
   List<AdminUser> _users = List.unmodifiable(mockAdminUsers);
   StreamSubscription<List<AdminUser>>? _profileSub;
+  int _droneTotal = 0;
+  int _droneOnline = 0;
+  StreamSubscription<List<DroneModel>>? _dronesSub;
 
   @override
   void initState() {
@@ -34,11 +38,19 @@ class _AiAdviceScreenState extends State<AiAdviceScreen> {
     _profileSub = ProfilesRepository.watchPlanteurs().listen((users) {
       if (mounted) setState(() => _users = users);
     });
+    _dronesSub = DronesRepository.watchAllDrones().listen((drones) {
+      if (!mounted) return;
+      setState(() {
+        _droneTotal = drones.length;
+        _droneOnline = drones.where((d) => d.status == DroneStatus.online).length;
+      });
+    });
   }
 
   @override
   void dispose() {
     _profileSub?.cancel();
+    _dronesSub?.cancel();
     super.dispose();
   }
 
@@ -165,10 +177,8 @@ class _AiAdviceScreenState extends State<AiAdviceScreen> {
   @override
   Widget build(BuildContext context) {
     final totalUsers = _users.length;
-    final totalDrones = mockDrones.length;
-    final onlineDrones = mockDrones
-        .where((d) => d.status == DroneStatus.online)
-        .length;
+    final totalDrones = _droneTotal;
+    final onlineDrones = _droneOnline;
     final activeAlerts = mockAdminAlerts.where((a) => !a.isResolved).length;
     final criticalAlerts = mockAdminAlerts
         .where((a) => a.severity == AlertSeverity.critical && !a.isResolved)

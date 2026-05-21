@@ -56,7 +56,9 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleLogin() async {
     setState(() { _errorMessage = ''; _isLoading = true; });
 
-    final email    = _emailController.text.trim();
+    // Normalise exactly like registration: lowercase + append domain when absent.
+    final raw      = _emailController.text.trim().toLowerCase();
+    final email    = raw.contains('@') ? raw : '$raw@gaia-ci.com';
     final password = _passwordController.text;
 
     try {
@@ -67,6 +69,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final user = res.user;
       if (user == null) throw const AuthException('Connexion échouée.');
 
+      // Fetch role + display name + drone count from profiles table.
       final row = await Supabase.instance.client
           .from('profiles')
           .select()
@@ -75,6 +78,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final role = row?['role'] as String? ?? 'planteur';
       final name = row?['full_name'] as String? ?? email;
+
+      // Touch the profile row so the DB trigger fires and redistributes
+      // drone health states (status / battery) immediately on login.
+      await Supabase.instance.client
+          .from('profiles')
+          .update({'full_name': name})
+          .eq('id', user.id);
 
       if (!mounted) return;
 
@@ -92,14 +102,16 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } on AuthException catch (e) {
+      debugPrint('[Login] AuthException: ${e.message}');
       setState(() {
         _isLoading = false;
         _errorMessage = _localizeError(e.message);
       });
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('[Login] Unexpected error: $e\n$st');
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Connexion impossible. Vérifiez votre connexion.';
+        _errorMessage = 'Erreur : $e';
       });
     }
   }
@@ -372,29 +384,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ),
                               ),
                             ),
-                            if (!_isRegisterMode) ...[
-                              const SizedBox(height: 16),
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.25),
-                                    width: 1.2,
-                                  ),
-                                ),
-                                child: Text(
-                                  'Démo — Planteur: paul@gaia-ci.com / paul123\nAdmin: admin@gaia-ci.com / admin123',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 11,
-                                    color: Colors.white.withValues(alpha: 0.85),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ],
                           ],
                         ),
                       ),

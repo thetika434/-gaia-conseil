@@ -210,12 +210,14 @@ class NewsArticle {
   final String source;
   final String region;
   final DateTime date;
+  final String body;
 
   const NewsArticle({
     required this.title,
     required this.source,
     required this.region,
     required this.date,
+    required this.body,
   });
 }
 
@@ -226,6 +228,16 @@ final List<NewsArticle> mockNews = [
     source: 'AgriBusiness Africa',
     region: 'Côte d\'Ivoire',
     date: DateTime.now().subtract(const Duration(hours: 4)),
+    body:
+        'Le cacao ivoirien a franchi la barre des 10 000 dollars la tonne à la Bourse de New York cette semaine, '
+        'un niveau jamais atteint depuis plus de quarante ans. Cette flambée des cours est attribuée à une offre '
+        'mondiale plus faible que prévu, combinée à une demande soutenue des grands chocolatiers européens.\n\n'
+        'Pour les planteurs de Côte d\'Ivoire, premier producteur mondial, cette conjoncture représente une '
+        'opportunité historique d\'améliorer leurs revenus. Le Conseil Café-Cacao a indiqué qu\'il pourrait '
+        'relever le prix bord-champ dès la prochaine campagne principale.\n\n'
+        'Les experts recommandent toutefois la prudence, soulignant que la volatilité des marchés peut '
+        'rapidement inverser ces gains. Les agriculteurs sont encouragés à diversifier leurs sources de '
+        'revenus et à renforcer la qualité de leur production pour bénéficier des primes.',
   ),
   NewsArticle(
     title:
@@ -233,6 +245,16 @@ final List<NewsArticle> mockNews = [
     source: 'Conseil Café-Cacao',
     region: 'Abidjan',
     date: DateTime.now().subtract(const Duration(days: 1)),
+    body:
+        'Le Conseil Café-Cacao a officialisé hier la mise en place d\'une prime de qualité différenciée '
+        'pour la campagne intermédiaire 2025-2026. Cette prime, qui pourra atteindre 150 FCFA par kilogramme '
+        'de fèves certifiées, vise à encourager les pratiques agricoles durables et l\'amélioration de la '
+        'fermentation.\n\n'
+        'Les planteurs souhaitant en bénéficier devront se soumettre à un contrôle qualité effectué par '
+        'des inspecteurs agréés avant la mise en sac. GAÏA-Conseil accompagnera ses utilisateurs dans '
+        'cette démarche de certification en proposant des guides pratiques directement dans l\'application.\n\n'
+        'Cette initiative s\'inscrit dans la stratégie nationale de montée en gamme du cacao ivoirien '
+        'et de renforcement de sa compétitivité face aux origines concurrentes.',
   ),
   NewsArticle(
     title:
@@ -240,6 +262,17 @@ final List<NewsArticle> mockNews = [
     source: 'Agence GAÏA',
     region: 'Lôh-Djiboua',
     date: DateTime.now().subtract(const Duration(days: 2)),
+    body:
+        'L\'agence GAÏA-CI a finalisé l\'installation de 50 capteurs connectés dans 12 plantations pilotes '
+        'de la région du Lôh-Djiboua. Ces dispositifs mesurent en continu la température du sol, l\'humidité, '
+        'les niveaux de nutriments et l\'ensoleillement, transmettant les données en temps réel vers la '
+        'plateforme GAÏA-Conseil.\n\n'
+        'Les premiers retours des planteurs concernés sont très positifs : grâce aux alertes automatiques, '
+        'plusieurs d\'entre eux ont pu intervenir rapidement sur des zones de stress hydrique avant que les '
+        'pertes ne deviennent significatives.\n\n'
+        'Le déploiement devrait s\'étendre à l\'ensemble des régions cacaoyères d\'ici la fin de l\'année, '
+        'avec un objectif de 500 capteurs supplémentaires financés dans le cadre d\'un partenariat '
+        'public-privé avec le Ministère de l\'Agriculture.',
   ),
   NewsArticle(
     title:
@@ -247,6 +280,19 @@ final List<NewsArticle> mockNews = [
     source: 'CNRA Côte d\'Ivoire',
     region: 'Zone Centre-Ouest',
     date: DateTime.now().subtract(const Duration(days: 3)),
+    body:
+        'Les équipes du Centre National de Recherche Agronomique (CNRA) ont relevé une recrudescence de '
+        'la pourriture brune (Phytophthora megakarya) dans la zone Centre-Ouest, touchant actuellement '
+        'environ 8 % des exploitations surveillées. Les conditions climatiques humides de ces dernières '
+        'semaines ont favorisé la propagation du champignon.\n\n'
+        'Les bonnes pratiques recommandées sont les suivantes :\n'
+        '• Taille sanitaire régulière pour améliorer l\'aération de la canopée.\n'
+        '• Ramassage et destruction des cabosses malades hors de la parcelle.\n'
+        '• Application préventive de fongicides homologués à base de cuivre dès les premiers signes.\n'
+        '• Surveillance accrue pendant les périodes pluvieuses.\n\n'
+        'Le CNRA propose des sessions de formation gratuites dans les coopératives partenaires. '
+        'Les planteurs utilisant GAÏA-Conseil peuvent signaler une cabosse suspecte directement '
+        'via l\'onglet Alertes pour obtenir un diagnostic assisté.',
   ),
 ];
 
@@ -429,6 +475,39 @@ class DroneModel {
     this.missionsTotales = 0,
     this.surfaceSurveillee = 0.0,
   });
+
+  factory DroneModel.fromRow(Map<String, dynamic> row) {
+    DroneStatus parseStatus(String? s) {
+      switch (s) {
+        case 'online':
+        case 'En ligne':
+          return DroneStatus.online;
+        case 'maintenance': return DroneStatus.maintenance;
+        default: return DroneStatus.offline;
+      }
+    }
+
+    // Support new schema ('assigned_to', 'last_active') and old mock schema
+    // ('owner_id', 'owner_name', 'last_seen') transparently.
+    final ownerId = (row['assigned_to'] ?? row['owner_id'] ?? '') as String;
+    final lastActiveRaw = (row['last_active'] ?? row['last_seen']) as String?;
+    final lastSeen = lastActiveRaw != null
+        ? DateTime.tryParse(lastActiveRaw) ?? DateTime.now()
+        : DateTime.now();
+
+    return DroneModel(
+      id: row['id'] as String,
+      ownerId: ownerId,
+      ownerName: (row['owner_name'] as String?) ?? '',
+      status: parseStatus(row['status'] as String?),
+      batteryLevel: (row['battery_level'] as int?) ?? 100,
+      location: (row['location'] as String?) ?? '',
+      lastSeen: lastSeen,
+      modele: row['modele'] as String?,
+      missionsTotales: (row['missions_totales'] as int?) ?? 0,
+      surfaceSurveillee: (row['surface_surveillee'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
 }
 
 final List<DroneModel> mockDrones = [
