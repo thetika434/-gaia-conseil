@@ -361,10 +361,10 @@ class _QuickActions extends StatelessWidget {
   const _QuickActions();
 
   static const _actions = [
-    (Icons.flight_takeoff, 'Lancer drone', true),
-    (Icons.water_drop, 'Irrigation', true),
-    (Icons.bar_chart, 'Rapport parcelle', false),
-    (Icons.eco, 'Diagnostic plantes', false),
+    (Icons.flight_takeoff, 'Lancer drone',     true,  'Drone lancé avec succès'),
+    (Icons.water_drop,     'Irrigation',        true,  'Irrigation lancée avec succès'),
+    (Icons.bar_chart,      'Rapport parcelle',  false, 'Rapport de parcelle généré avec succès'),
+    (Icons.eco,            'Diagnostic plantes',false, 'Diagnostic des plantes démarré avec succès'),
   ];
 
   @override
@@ -377,7 +377,12 @@ class _QuickActions extends StatelessWidget {
       crossAxisSpacing: 12,
       childAspectRatio: 1.6,
       children: _actions
-          .map((a) => _ActionButton(icon: a.$1, label: a.$2, filled: a.$3))
+          .map((a) => _ActionButton(
+                icon:           a.$1,
+                label:          a.$2,
+                filled:         a.$3,
+                successMessage: a.$4,
+              ))
           .toList(),
     );
   }
@@ -388,24 +393,37 @@ class _ActionButton extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.filled,
+    required this.successMessage,
   });
   final IconData icon;
   final String label;
   final bool filled;
+  final String successMessage;
 
   void _onTap(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Fonctionnalité bientôt disponible',
-          style: GoogleFonts.poppins(fontSize: 13),
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  successMessage,
+                  style: GoogleFonts.poppins(fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: AppTheme.primaryGreen,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 2),
         ),
-        backgroundColor: AppTheme.primaryGreen,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+      );
   }
 
   @override

@@ -28,19 +28,26 @@ class _AiAdviceScreenState extends State<AiAdviceScreen> {
 
   List<AdminUser> _users = List.unmodifiable(mockAdminUsers);
   StreamSubscription<List<AdminUser>>? _profileSub;
+  List<DroneModel> _allDrones = [];
   int _droneTotal = 0;
   int _droneOnline = 0;
   StreamSubscription<List<DroneModel>>? _dronesSub;
+  Map<String, String> _ownerNames = {};
 
   @override
   void initState() {
     super.initState();
     _profileSub = ProfilesRepository.watchPlanteurs().listen((users) {
-      if (mounted) setState(() => _users = users);
+      if (!mounted) return;
+      setState(() {
+        _users = users;
+        _ownerNames = {for (final u in users) u.id: u.fullName};
+      });
     });
     _dronesSub = DronesRepository.watchAllDrones().listen((drones) {
       if (!mounted) return;
       setState(() {
+        _allDrones = drones;
         _droneTotal = drones.length;
         _droneOnline = drones.where((d) => d.status == DroneStatus.online).length;
       });
@@ -74,35 +81,36 @@ class _AiAdviceScreenState extends State<AiAdviceScreen> {
     }
   }
 
-  List<AdminUser> get _filteredUsers {
-    return _users.where((u) {
-      final matchesSearch =
-          u.fullName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          u.region.toLowerCase().contains(_searchQuery.toLowerCase());
+  // Alert counts derived from live drone stream — same logic as AdminDashboardScreen.
+  int get _activeAlertCount {
+    int n = 0;
+    for (final d in _allDrones) {
+      final name = _ownerNames[d.ownerId] ??
+          (d.ownerName.isNotEmpty ? d.ownerName : d.ownerId);
+      if (name.isNotEmpty &&
+          (d.batteryLevel < 20 ||
+              d.status == DroneStatus.offline ||
+              d.status == DroneStatus.maintenance)) {
+        n++;
+      }
+    }
+    return n;
+  }
 
-      if (_categoryFilter == 'Tous') return matchesSearch;
+  int get _criticalAlertCount =>
+      _allDrones.where((d) => d.batteryLevel < 20).length;
 
-      final t = mockTelemetry.firstWhere(
-        (t) => t.planteurName == u.fullName,
-        orElse: () => TelemetryRecord(
-          planteurName: '',
-          temperature: 0,
-          airHumidity: 0,
-          soilHumidity: 100,
-          soilPH: 7,
-          nitrogen: 50,
-          recordedAt: DateTime.now(),
-        ),
-      );
-      final hasAlert =
-          t.soilHumidity < 50 ||
-          t.temperature > 30 ||
-          t.soilPH < 5.5 ||
-          t.nitrogen < 40;
-
-      if (_categoryFilter == 'Alertes') return matchesSearch && hasAlert;
-      return matchesSearch && !hasAlert;
-    }).toList();
+  // Users shown in the dropdown — always the full list, search-filtered only.
+  // The category filter (Tous/Alertes/Optimaux) is intentionally NOT applied
+  // here: it only affects recommendation content, not who is selectable.
+  List<AdminUser> get _dropdownUsers {
+    if (_searchQuery.isEmpty) return List.unmodifiable(_users);
+    final q = _searchQuery.toLowerCase();
+    return _users
+        .where((u) =>
+            u.fullName.toLowerCase().contains(q) ||
+            u.region.toLowerCase().contains(q))
+        .toList();
   }
 
   String _generateRecommendation(TelemetryRecord t) {
@@ -134,8 +142,8 @@ class _AiAdviceScreenState extends State<AiAdviceScreen> {
   }
 
   Future<void> _generate() async {
-    final t = _telemetry;
-    if (t == null) return;
+    final user = _selectedUser;
+    if (user == null) return;
     setState(() {
       _isGenerating = true;
       _recommendation = '';
@@ -153,10 +161,27 @@ class _AiAdviceScreenState extends State<AiAdviceScreen> {
     await Future.delayed(const Duration(milliseconds: 600));
     if (!mounted) return;
 
+    final t = _telemetry;
     setState(() {
       _isGenerating = false;
-      _recommendation = _generateRecommendation(t);
+      _recommendation = t != null
+          ? _generateRecommendation(t)
+          : _generateFallbackRecommendation(user);
     });
+  }
+
+  String _generateFallbackRecommendation(AdminUser user) {
+    return '⚠️ Données capteurs indisponibles pour ${user.fullName} '
+        '(Région : ${user.region}).\n\n'
+        '🚁 Mission drone recommandée : planifier un vol de relevé sur la '
+        'parcelle pour collecter température, humidité et pH du sol.\n\n'
+        '🌿 En attendant les mesures : appliquer les bonnes pratiques '
+        'agroforestières standard — maintenir un arrosage régulier et '
+        'surveiller visuellement les feuilles pour détecter tout signe de '
+        'carence ou de stress hydrique.\n\n'
+        '📋 Suivi conseillé : revenir dans cet onglet après la prochaine '
+        'mission drone pour obtenir des recommandations précises basées sur '
+        'la télémétrie réelle.';
   }
 
   void _sendToPlanteur() {
@@ -179,18 +204,14 @@ class _AiAdviceScreenState extends State<AiAdviceScreen> {
     final totalUsers = _users.length;
     final totalDrones = _droneTotal;
     final onlineDrones = _droneOnline;
-    final activeAlerts = mockAdminAlerts.where((a) => !a.isResolved).length;
-    final criticalAlerts = mockAdminAlerts
-        .where((a) => a.severity == AlertSeverity.critical && !a.isResolved)
-        .length;
+    final activeAlerts = _activeAlertCount;
+    final criticalAlerts = _criticalAlertCount;
 
     final t = _telemetry;
-    return LayoutBuilder(
-      builder: (context, constraints) => SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: constraints.maxHeight - 40),
-          child: Column(
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottomInset),
+      child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // ── Dashboard Summary Cards ──────────────────────────────────
@@ -200,7 +221,7 @@ class _AiAdviceScreenState extends State<AiAdviceScreen> {
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
-                childAspectRatio: 1.4,
+                childAspectRatio: 1.6,
                 children: [
                   _SummaryCard(
                     label: 'Planteurs',
@@ -293,41 +314,32 @@ class _AiAdviceScreenState extends State<AiAdviceScreen> {
                 style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey),
               ),
               const SizedBox(height: 16),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: ['Tous', 'Alertes', 'Optimaux'].map((cat) {
-                    final isSelected = _categoryFilter == cat;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(
-                          cat,
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            fontWeight: isSelected
-                                ? FontWeight.w600
-                                : FontWeight.normal,
-                          ),
-                        ),
-                        selected: isSelected,
-                        onSelected: (val) {
-                          if (val) {
-                            setState(() {
-                              _categoryFilter = cat;
-                              _selectedUserId = null;
-                              _recommendation = '';
-                            });
-                          }
-                        },
-                        selectedColor: AppTheme.primaryGreen.withValues(
-                          alpha: 0.2,
-                        ),
-                        backgroundColor: Colors.white,
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: ['Tous', 'Alertes', 'Optimaux'].map((cat) {
+                  final isSelected = _categoryFilter == cat;
+                  return ChoiceChip(
+                    label: Text(
+                      cat,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.normal,
                       ),
-                    );
-                  }).toList(),
-                ),
+                    ),
+                    selected: isSelected,
+                    onSelected: (_) => setState(() {
+                      _categoryFilter = cat;
+                      _selectedUserId = null;
+                      _recommendation = '';
+                    }),
+                    selectedColor:
+                        AppTheme.primaryGreen.withValues(alpha: 0.2),
+                    backgroundColor: Colors.white,
+                  );
+                }).toList(),
               ),
               const SizedBox(height: 24),
 
@@ -336,7 +348,8 @@ class _AiAdviceScreenState extends State<AiAdviceScreen> {
                 'Sélectionner un planteur',
                 style: GoogleFonts.poppins(
                   fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
               ),
               const SizedBox(height: 8),
@@ -382,11 +395,14 @@ class _AiAdviceScreenState extends State<AiAdviceScreen> {
                             _selectedUserId = val;
                             _recommendation = '';
                           }),
-                          items: _filteredUsers
+                          items: _dropdownUsers
                               .map(
                                 (u) => DropdownMenuItem(
                                   value: u.id,
-                                  child: Text(u.fullName),
+                                  child: Text(
+                                    u.fullName,
+                                    style: GoogleFonts.poppins(fontSize: 14),
+                                  ),
                                 ),
                               )
                               .toList(),
@@ -592,8 +608,6 @@ class _AiAdviceScreenState extends State<AiAdviceScreen> {
                 ),
             ],
           ),
-        ),
-      ),
     );
   }
 }
@@ -617,45 +631,56 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: 0.1)),
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
+    return Card(
+      elevation: 2,
+      color: Colors.white.withValues(alpha: 0.88),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      clipBehavior: Clip.hardEdge,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 22),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            Text(
-              label,
-              style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[600]),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      value,
+                      style: GoogleFonts.poppins(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                        height: 1.1,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      label,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: Colors.grey[600],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

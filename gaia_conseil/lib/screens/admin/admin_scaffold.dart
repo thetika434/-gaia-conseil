@@ -38,11 +38,14 @@ class _AdminScaffoldState extends State<AdminScaffold> {
       const UsersScreen(),
       const DronesScreen(),
       const AdminMessagingScreen(),
-      const AiAdviceScreen(),
+      AiAdviceScreen(onNavigateToChat: _navigateToChat),
     ];
   }
 
   void _navigateTo(int index) => setState(() => _selectedIndex = index);
+
+  // Called from AiAdviceScreen chat button — switches to Messagerie tab.
+  void _navigateToChat(String userId) => setState(() => _selectedIndex = 3);
 
   void _logout() {
     AuthState.logout();
